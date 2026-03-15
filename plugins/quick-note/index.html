@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .font-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+    .font-toolbar-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      font: 600 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+    .font-toolbar-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+    .font-toolbar-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-left: 4px;
+    }
+    .editor {
+      flex: 1;
+      width: 100%;
+      padding: 14px 16px;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.88);
+      font: 400 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      caret-color: rgba(255, 255, 255, 0.7);
+    }
+    .editor::placeholder {
+      color: rgba(255, 255, 255, 0.28);
+    }
+    .editor::-webkit-scrollbar {
+      width: 6px;
+    }
+    .editor::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .editor::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+    }
+    .editor::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+  </style>
+</head>
+<body>
+  <div class="font-toolbar">
+    <button class="font-toolbar-btn" id="font-smaller" title="Decrease font size">A−</button>
+    <button class="font-toolbar-btn" id="font-larger" title="Increase font size">A+</button>
+    <span class="font-toolbar-label" id="font-size-label"></span>
+  </div>
+  <textarea
+    class="editor"
+    id="editor"
+    placeholder="Type something..."
+    spellcheck="false"
+  ></textarea>
+  <script>
+    const STORAGE_KEY = 'webzen-quick-note:content'
+    const FONT_SIZE_KEY = 'webzen-quick-note:fontSize'
+    const MIN_FONT_SIZE = 10
+    const MAX_FONT_SIZE = 24
+    const DEFAULT_FONT_SIZE = 14
+
+    const editor = document.getElementById('editor')
+    const fontSmaller = document.getElementById('font-smaller')
+    const fontLarger = document.getElementById('font-larger')
+    const fontSizeLabel = document.getElementById('font-size-label')
+
+    editor.value = localStorage.getItem(STORAGE_KEY) || ''
+
+    let fontSize = parseInt(localStorage.getItem(FONT_SIZE_KEY), 10) || DEFAULT_FONT_SIZE
+    if (isNaN(fontSize) || fontSize < MIN_FONT_SIZE || fontSize > MAX_FONT_SIZE) {
+      fontSize = DEFAULT_FONT_SIZE
+    }
+
+    function applyFontSize() {
+      editor.style.fontSize = fontSize + 'px'
+      fontSizeLabel.textContent = fontSize + 'px'
+      localStorage.setItem(FONT_SIZE_KEY, String(fontSize))
+    }
+
+    fontSmaller.addEventListener('click', () => {
+      if (fontSize > MIN_FONT_SIZE) {
+        fontSize -= 2
+        applyFontSize()
+      }
+    })
+
+    fontLarger.addEventListener('click', () => {
+      if (fontSize < MAX_FONT_SIZE) {
+        fontSize += 2
+        applyFontSize()
+      }
+    })
+
+    applyFontSize()
+
+    let saveTimer = null
+    editor.addEventListener('input', () => {
+      clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        localStorage.setItem(STORAGE_KEY, editor.value)
+      }, 300)
+    })
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+    "id": "clock",
+    "name": "Clock",
+    "version": "1.0.0",
+    "description": "A minimal transparent clock displaying current time and date.",
+    "entry": "index.html",
+    "backstage": "settings.html",
+    "icon": "🕐",
+    "defaultWidth": 200,
+    "defaultHeight": 72,
+    "minWidth": 120,
+    "minHeight": 48,
+    "window": {
+        "transparent": true,
+        "background": "transparent",
+        "borderColor": "transparent",
+        "backdropFilter": "none",
+        "borderRadius": 16
+    }
+}
