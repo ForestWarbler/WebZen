@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: transparent;
+      overflow: auto;
+    }
+    body {
+      padding: 20px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .section + .section {
+      margin-top: 20px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 8px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 14px; font-weight: 500; }
+    .setting-description {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 2px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px; height: 26px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.7);
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: rgba(80, 160, 255, 0.6); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+    .sound-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .sound-row:last-child { border-bottom: none; }
+    .sound-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+    .sound-name {
+      width: 50px;
+      font-size: 13px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .sound-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    .sound-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+    }
+    .sound-value {
+      width: 32px;
+      text-align: right;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <script src="engine.js"></script>
+
+  <div class="section" id="general-section">
+    <div class="section-title">General</div>
+  </div>
+  <div class="section" id="mixer-section">
+    <div class="section-title">Mixer</div>
+  </div>
+
+  <script>
+    const settings = loadSettings()
+    const generalSection = document.getElementById('general-section')
+    const mixerSection = document.getElementById('mixer-section')
+
+    function addToggleRow(parent, label, desc, checked, onChange) {
+      const row = document.createElement('div')
+      row.className = 'setting-row'
+
+      const left = document.createElement('div')
+      const lbl = document.createElement('div')
+      lbl.className = 'setting-label'
+      lbl.textContent = label
+      left.append(lbl)
+      if (desc) {
+        const d = document.createElement('div')
+        d.className = 'setting-description'
+        d.textContent = desc
+        left.append(d)
+      }
+
+      const toggle = document.createElement('label')
+      toggle.className = 'toggle'
+      const input = document.createElement('input')
+      input.type = 'checkbox'
+      input.checked = checked
+      const track = document.createElement('span')
+      track.className = 'toggle-track'
+      toggle.append(input, track)
+
+      input.addEventListener('change', () => onChange(input.checked))
+
+      row.append(left, toggle)
+      parent.append(row)
+      return input
+    }
+
+    addToggleRow(
+      generalSection,
+      'Show frontend mixer',
+      'Display the mixer widget in the plugin window',
+      settings.showFrontend,
+      (val) => {
+        settings.showFrontend = val
+        saveSettings(settings)
+      }
+    )
+
+    addToggleRow(
+      generalSection,
+      'Playing',
+      'Enable or disable sound playback',
+      settings.playing,
+      (val) => {
+        settings.playing = val
+        saveSettings(settings)
+      }
+    )
+
+    SOUND_DEFS.forEach((def) => {
+      const row = document.createElement('div')
+      row.className = 'sound-row'
+
+      const icon = document.createElement('span')
+      icon.className = 'sound-icon'
+      icon.textContent = def.icon
+
+      const name = document.createElement('span')
+      name.className = 'sound-name'
+      name.textContent = def.name
+
+      const slider = document.createElement('input')
+      slider.type = 'range'
+      slider.className = 'sound-slider'
+      slider.min = '0'
+      slider.max = '100'
+      slider.value = String(Math.round((settings.volumes[def.id] ?? 0) * 100))
+
+      const valueLabel = document.createElement('span')
+      valueLabel.className = 'sound-value'
+      valueLabel.textContent = slider.value + '%'
+
+      slider.addEventListener('input', () => {
+        const val = parseInt(slider.value, 10) / 100
+        settings.volumes[def.id] = val
+        valueLabel.textContent = slider.value + '%'
+        saveSettings(settings)
+      })
+
+      row.append(icon, name, slider, valueLabel)
+      mixerSection.append(row)
+    })
+
+    function addParamSlider(parent, icon, label, desc, key, value) {
+      const row = document.createElement('div')
+      row.className = 'sound-row'
+
+      const ic = document.createElement('span')
+      ic.className = 'sound-icon'
+      ic.textContent = icon
+
+      const nm = document.createElement('span')
+      nm.className = 'sound-name'
+      nm.textContent = label
+
+      const slider = document.createElement('input')
+      slider.type = 'range'
+      slider.className = 'sound-slider'
+      slider.min = '0'
+      slider.max = '100'
+      slider.value = String(value)
+
+      const val = document.createElement('span')
+      val.className = 'sound-value'
+      val.textContent = slider.value + '%'
+
+      slider.addEventListener('input', () => {
+        settings[key] = parseInt(slider.value, 10)
+        val.textContent = slider.value + '%'
+        saveSettings(settings)
+      })
+
+      row.append(ic, nm, slider, val)
+      parent.append(row)
+    }
+
+    addParamSlider(mixerSection, '⏱', 'Reverb', 'Amount of reverb on the bells', 'bellDelay', settings.bellDelay ?? 50)
+    addParamSlider(mixerSection, '🔁', 'Rate', 'How often bell notes trigger', 'bellFrequency', settings.bellFrequency ?? 50)
+  </script>
+</body>
+</html>

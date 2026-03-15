@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .clock-wrapper {
+      text-align: center;
+      --clock-scale: 1;
+    }
+    .time {
+      color: rgba(255, 255, 255, 0.85);
+      font-size: calc(min(18vw, 28vh) * var(--clock-scale));
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      text-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.5),
+        0 6px 20px rgba(0, 0, 0, 0.4),
+        0 12px 40px rgba(0, 0, 0, 0.25);
+    }
+    .date {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: calc(min(4.5vw, 7vh) * var(--clock-scale));
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-top: 0.3em;
+      text-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.5),
+        0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="clock-wrapper" id="clock-wrapper">
+    <div class="time" id="time"></div>
+    <div class="date" id="date"></div>
+  </div>
+  <script>
+    const SETTINGS_KEY = 'webzen-clock:settings'
+    const defaults = { use24h: false, showSeconds: true, showDate: true, uiSize: 100 }
+
+    function loadSettings() {
+      try {
+        return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) }
+      } catch (_e) {
+        return { ...defaults }
+      }
+    }
+
+    function updateClock() {
+      const settings = loadSettings()
+      const now = new Date()
+
+      const wrapper = document.getElementById('clock-wrapper')
+      const scale = Number.isFinite(settings.uiSize) ? settings.uiSize / 100 : 1
+      wrapper.style.setProperty('--clock-scale', String(scale))
+
+      const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: !settings.use24h }
+      if (settings.showSeconds) timeOptions.second = '2-digit'
+
+      document.getElementById('time').textContent =
+        now.toLocaleTimeString([], timeOptions)
+
+      const dateEl = document.getElementById('date')
+      if (settings.showDate) {
+        dateEl.style.display = ''
+        dateEl.textContent =
+          now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+      } else {
+        dateEl.style.display = 'none'
+      }
+    }
+
+    updateClock()
+    setInterval(updateClock, 1000)
+  </script>
+</body>
+</html>

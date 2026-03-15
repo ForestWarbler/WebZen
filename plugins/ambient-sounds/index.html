@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mixer {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 14px;
+      overflow-y: auto;
+    }
+
+    .play-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      margin-bottom: 4px;
+    }
+    .play-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .play-btn {
+      width: 32px; height: 32px;
+      border: none; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .play-btn:hover { background: rgba(255, 255, 255, 0.18); }
+    .play-btn.active { background: rgba(80, 180, 120, 0.4); }
+
+    .sound-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+    }
+    .sound-icon { font-size: 16px; flex-shrink: 0; line-height: 1; }
+    .sound-name {
+      width: 42px;
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      flex-shrink: 0;
+    }
+    .sound-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    .sound-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+    }
+
+    .mixer::-webkit-scrollbar { width: 4px; }
+    .mixer::-webkit-scrollbar-track { background: transparent; }
+    .mixer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <script src="engine.js"></script>
+  <script>
+    const settings = loadSettings()
+    const engine = createEngine()
+
+    function setWindowVisible(visible) {
+      window.parent.postMessage({ type: 'webzen:set-window-visible', visible }, '*')
+    }
+
+    const mixer = document.createElement('div')
+    mixer.className = 'mixer'
+
+    const playRow = document.createElement('div')
+    playRow.className = 'play-row'
+    const playLabel = document.createElement('span')
+    playLabel.className = 'play-label'
+    playLabel.textContent = 'Ambient Sounds'
+    const playBtn = document.createElement('button')
+    playBtn.className = 'play-btn' + (settings.playing ? ' active' : '')
+    playBtn.textContent = settings.playing ? '⏸' : '▶'
+    playBtn.addEventListener('click', () => {
+      settings.playing = !settings.playing
+      playBtn.classList.toggle('active', settings.playing)
+      playBtn.textContent = settings.playing ? '⏸' : '▶'
+      saveSettings(settings)
+      engine.applySettings(settings)
+    })
+    playRow.append(playLabel, playBtn)
+    mixer.append(playRow)
+
+    const sliders = {}
+    SOUND_DEFS.forEach((def) => {
+      const row = document.createElement('div')
+      row.className = 'sound-row'
+
+      const icon = document.createElement('span')
+      icon.className = 'sound-icon'
+      icon.textContent = def.icon
+
+      const name = document.createElement('span')
+      name.className = 'sound-name'
+      name.textContent = def.name
+
+      const slider = document.createElement('input')
+      slider.type = 'range'
+      slider.className = 'sound-slider'
+      slider.min = '0'
+      slider.max = '100'
+      slider.value = String(Math.round((settings.volumes[def.id] ?? 0) * 100))
+      sliders[def.id] = slider
+
+      slider.addEventListener('input', () => {
+        const val = parseInt(slider.value, 10) / 100
+        settings.volumes[def.id] = val
+        saveSettings(settings)
+        engine.setVolume(def.id, val)
+      })
+
+      row.append(icon, name, slider)
+      mixer.append(row)
+    })
+
+    function addParamRow(parent, icon, label, key, value) {
+      const row = document.createElement('div')
+      row.className = 'sound-row'
+
+      const ic = document.createElement('span')
+      ic.className = 'sound-icon'
+      ic.textContent = icon
+
+      const nm = document.createElement('span')
+      nm.className = 'sound-name'
+      nm.textContent = label
+
+      const slider = document.createElement('input')
+      slider.type = 'range'
+      slider.className = 'sound-slider'
+      slider.min = '0'
+      slider.max = '100'
+      slider.value = String(value)
+      sliders[key] = slider
+
+      slider.addEventListener('input', () => {
+        settings[key] = parseInt(slider.value, 10)
+        saveSettings(settings)
+        engine.applySettings(settings)
+      })
+
+      row.append(ic, nm, slider)
+      parent.append(row)
+    }
+
+    addParamRow(mixer, '⏱', 'Reverb', 'bellDelay', settings.bellDelay ?? 50)
+    addParamRow(mixer, '🔁', 'Rate', 'bellFrequency', settings.bellFrequency ?? 50)
+
+    function applyVisibility() {
+      setWindowVisible(settings.showFrontend)
+      if (settings.showFrontend) {
+        if (!mixer.parentElement) document.body.append(mixer)
+      } else {
+        mixer.remove()
+      }
+    }
+
+    applyVisibility()
+    engine.applySettings(settings)
+
+    setInterval(() => {
+      const fresh = loadSettings()
+      const visChanged = fresh.showFrontend !== settings.showFrontend
+      settings.playing = fresh.playing
+      settings.volumes = fresh.volumes
+      settings.showFrontend = fresh.showFrontend
+      settings.bellDelay = fresh.bellDelay
+      settings.bellFrequency = fresh.bellFrequency
+
+      playBtn.classList.toggle('active', settings.playing)
+      playBtn.textContent = settings.playing ? '⏸' : '▶'
+      SOUND_DEFS.forEach((def) => {
+        sliders[def.id].value = String(Math.round((settings.volumes[def.id] ?? 0) * 100))
+      })
+      if (sliders.bellDelay) sliders.bellDelay.value = String(settings.bellDelay ?? 50)
+      if (sliders.bellFrequency) sliders.bellFrequency.value = String(settings.bellFrequency ?? 50)
+
+      if (visChanged) applyVisibility()
+      engine.applySettings(settings)
+    }, 2000)
+  </script>
+</body>
+</html>

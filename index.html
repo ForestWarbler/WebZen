@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebZen - Wallpaper Player</title>
+    <style>
+      /* Reset & base */
+      *, *::before, *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html, body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden !important;
+      }
+      body {
+        background: #000;
+        cursor: grab;
+        user-select: none;
+      }
+      body.dragging {
+        cursor: grabbing;
+      }
+      .background-media {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        object-position: 50% 50%;
+        pointer-events: none;
+        -webkit-user-drag: none;
+        z-index: 0;
+      }
+      .background-media.hidden {
+        display: none;
+      }
+
+      /* Toolbar */
+      #toolbar {
+        position: fixed;
+        top: 0;
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+        z-index: 10;
+      }
+      body:hover #toolbar,
+      #toolbar:hover {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      body.mac #toolbar {
+        left: 0;
+        flex-direction: row;
+      }
+      body:not(.mac) #toolbar {
+        right: 0;
+        flex-direction: row-reverse;
+      }
+
+      .toolbar-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: background 0.15s ease;
+      }
+      .toolbar-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+      .toolbar-btn.close:hover {
+        background: rgba(235, 77, 75, 0.6);
+      }
+
+      .toolbar-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Background picker */
+      #background-panel {
+        position: fixed;
+        top: 56px;
+        width: min(420px, calc(100vw - 32px));
+        max-height: min(70vh, 640px);
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(18, 18, 18, 0.82);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+        z-index: 12;
+      }
+      #background-panel.open {
+        display: flex;
+      }
+      body.mac #background-panel {
+        left: 16px;
+      }
+      body:not(.mac) #background-panel {
+        right: 16px;
+      }
+      #panel-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      #panel-title {
+        color: rgba(255, 255, 255, 0.92);
+        font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #directory-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #btn-change-directory {
+        width: auto;
+        min-width: 144px;
+        padding: 0 14px;
+        font: 600 13px/32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #selected-directory {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.95);
+        font: 500 12px/1.4 Menlo, Monaco, Consolas, monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #panel-status {
+        min-height: 18px;
+        color: rgba(255, 255, 255, 0.72);
+        font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #background-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+      .asset-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      }
+      .asset-card:hover {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-1px);
+      }
+      .asset-card.active {
+        border-color: rgba(129, 191, 255, 0.7);
+        background: rgba(129, 191, 255, 0.16);
+      }
+      .asset-preview {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 10px;
+        object-fit: cover;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .asset-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      /* Plugin layer */
+      #widget-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+      }
+      #widget-layer.manage-mode {
+        pointer-events: auto;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .plugin-window {
+        position: absolute;
+        min-width: 220px;
+        min-height: 160px;
+        border-radius: 20px;
+        background: rgba(30, 30, 30, 0.72);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        overflow: hidden;
+        pointer-events: auto;
+        color: rgba(255, 255, 255, 0.9);
+      }
+      .plugin-window.is-interacting {
+        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+      }
+      #widget-layer.manage-mode .plugin-window {
+        cursor: move;
+        outline: 2px solid rgba(129, 191, 255, 0.6);
+        outline-offset: -2px;
+      }
+      #widget-layer.manage-mode .plugin-content {
+        opacity: 0.35;
+      }
+      #widget-layer.manage-mode .plugin-iframe {
+        pointer-events: none;
+      }
+
+      .plugin-window-actions {
+        position: absolute;
+        top: 8px;
+        display: none;
+        align-items: center;
+        gap: 6px;
+        z-index: 2;
+      }
+      body.mac .plugin-window-actions {
+        left: 8px;
+        flex-direction: row;
+      }
+      body:not(.mac) .plugin-window-actions {
+        right: 8px;
+        flex-direction: row-reverse;
+      }
+      #widget-layer.manage-mode .plugin-window-actions {
+        display: flex;
+      }
+      #widget-layer.manage-mode .plugin-action-btn {
+        background: rgba(28, 36, 48, 0.95);
+        outline: 1px solid rgba(129, 191, 255, 0.65);
+      }
+      #widget-layer.manage-mode .plugin-action-btn:hover {
+        background: rgba(45, 58, 75, 0.98);
+        outline-color: rgba(129, 191, 255, 0.85);
+      }
+      #widget-layer.manage-mode .plugin-action-btn.remove-plugin:hover {
+        background: rgba(180, 50, 48, 0.95);
+      }
+      .plugin-action-btn {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease;
+      }
+      .plugin-action-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+      .plugin-action-btn.remove-plugin:hover {
+        background: rgba(235, 77, 75, 0.75);
+      }
+      .plugin-action-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .plugin-content {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .plugin-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+      }
+      .plugin-error {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        opacity: 0.6;
+      }
+      .plugin-error-icon {
+        font-size: 28px;
+      }
+      .plugin-error-label {
+        font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .plugin-resize-handle {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 16px;
+        height: 16px;
+        border-radius: 6px;
+        background:
+          linear-gradient(135deg, transparent 35%, rgba(255, 255, 255, 0.5) 35%, rgba(255, 255, 255, 0.5) 45%, transparent 45%),
+          linear-gradient(135deg, transparent 55%, rgba(255, 255, 255, 0.7) 55%, rgba(255, 255, 255, 0.7) 65%, transparent 65%);
+        cursor: nwse-resize;
+        display: none;
+      }
+      #widget-layer.manage-mode .plugin-resize-handle {
+        display: block;
+      }
+
+      /* Plugin panel */
+      #plugin-panel {
+        position: fixed;
+        top: 56px;
+        width: min(360px, calc(100vw - 32px));
+        max-height: min(75vh, 680px);
+        display: none;
+        flex-direction: column;
+        gap: 14px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(18, 18, 18, 0.86);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+        z-index: 14;
+        overflow-y: auto;
+      }
+      #plugin-panel.open {
+        display: flex;
+      }
+      body.mac #plugin-panel {
+        left: 16px;
+      }
+      body:not(.mac) #plugin-panel {
+        right: 16px;
+      }
+      #plugin-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      #plugin-panel-title {
+        color: rgba(255, 255, 255, 0.92);
+        font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #btn-open-plugins-folder {
+        width: auto;
+        padding: 0 10px;
+        font: 500 12px/28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .plugin-panel-section {
+        color: rgba(255, 255, 255, 0.4);
+        font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+      }
+
+      /* Active plugins list */
+      #active-plugins-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .active-plugins-empty {
+        color: rgba(255, 255, 255, 0.3);
+        font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 4px 0;
+      }
+      .active-plugin-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.88);
+        font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        cursor: default;
+        transition: background 0.15s ease;
+      }
+      .active-plugin-item.has-backstage {
+        cursor: pointer;
+      }
+      .active-plugin-item.has-backstage:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .active-plugin-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+      .active-plugin-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .active-plugin-badge {
+        flex-shrink: 0;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 18px;
+      }
+      .active-plugin-remove {
+        width: 22px;
+        height: 22px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.35);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .active-plugin-remove:hover {
+        background: rgba(235, 77, 75, 0.6);
+        color: rgba(255, 255, 255, 0.9);
+      }
+      .active-plugin-remove svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      /* Plugin catalog grid */
+      #plugin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+      }
+      .plugin-card {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 10px;
+        color: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      }
+      .plugin-card:hover {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-1px);
+      }
+      .plugin-card-preview {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+        font-size: 28px;
+      }
+      .plugin-card-name {
+        font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      /* Backstage overlay */
+      #backstage-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 20;
+      }
+      #backstage-overlay.open {
+        display: flex;
+      }
+      #backstage-panel {
+        width: min(600px, calc(100vw - 64px));
+        height: min(440px, calc(100vh - 80px));
+        display: flex;
+        flex-direction: column;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 20px;
+        background: rgba(24, 24, 24, 0.94);
+        backdrop-filter: blur(24px);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+      #backstage-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        flex-shrink: 0;
+      }
+      #btn-backstage-back {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      #backstage-title {
+        color: rgba(255, 255, 255, 0.92);
+        font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #backstage-content {
+        flex: 1;
+        overflow: hidden;
+      }
+      .backstage-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+      }
+
+      .toolbar-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .toolbar-btn:disabled:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      /* Edit mode toolbar button active state */
+      .toolbar-btn.active {
+        background: rgba(129, 191, 255, 0.35);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar">
+      <button class="toolbar-btn close" id="btn-close" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="btn-fullscreen" title="Fullscreen">
+        <svg id="icon-fullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+        </svg>
+        <svg id="icon-exit-fullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none">
+          <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 002 2v3" />
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="btn-backgrounds" title="Choose background">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <circle cx="8.5" cy="10" r="1.5" />
+          <path d="M21 16l-5.5-5.5L7 19" />
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="btn-edit-widgets" title="Edit widgets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      </button>
+      <button class="toolbar-btn" id="btn-add-plugin" title="Add plugin" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </div>
+    <div id="background-panel" aria-hidden="true">
+      <div id="panel-header">
+        <div id="panel-title">Choose background</div>
+        <div id="directory-controls">
+          <button class="toolbar-btn" id="btn-change-directory" type="button">Change Directory</button>
+          <div id="selected-directory">No folder selected.</div>
+        </div>
+      </div>
+      <div id="panel-status">Choose a local folder to load image and video backgrounds.</div>
+      <div id="background-grid"></div>
+    </div>
+    <div id="widget-layer"></div>
+    <div id="plugin-panel" aria-hidden="true">
+      <div id="plugin-panel-header">
+        <div id="plugin-panel-title">Plugins</div>
+        <button class="toolbar-btn" id="btn-open-plugins-folder" type="button" title="Open plugins folder">Open Folder</button>
+      </div>
+      <div class="plugin-panel-section">Active</div>
+      <div id="active-plugins-list"></div>
+      <div class="plugin-panel-section">Add Plugin</div>
+      <div id="plugin-grid"></div>
+    </div>
+    <div id="backstage-overlay" aria-hidden="true">
+      <div id="backstage-panel">
+        <div id="backstage-header">
+          <button class="toolbar-btn" id="btn-backstage-back" title="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div id="backstage-title">Settings</div>
+        </div>
+        <div id="backstage-content"></div>
+      </div>
+    </div>
+    <img
+      id="background-image"
+      class="background-media hidden"
+      alt=""
+    />
+    <video
+      id="background-video"
+      class="background-media"
+      src="assets/night-city-pixel-moewalls-com.mp4"
+      autoplay
+      loop
+      muted
+      playsinline
+    ></video>
+    <script src="renderer.js"></script>
+  </body>
+</html>

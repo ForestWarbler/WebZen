@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: auto;
+    }
+    body {
+      padding: 20px 24px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    .setting-label {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .setting-description {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 2px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.7);
+      transition: transform 0.2s ease;
+    }
+    .toggle input:checked + .toggle-track {
+      background: rgba(80, 160, 255, 0.6);
+    }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(18px);
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">24-hour format</div>
+        <div class="setting-description">Use 24-hour time instead of AM/PM</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="use24h">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Show seconds</div>
+        <div class="setting-description">Display seconds in the time</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showSeconds" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Show date</div>
+        <div class="setting-description">Display the current date below the time</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showDate" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">UI size</div>
+        <div class="setting-description">Scale percentage (e.g. 100 = default, 75 = smaller, 150 = larger)</div>
+      </div>
+      <input type="number" id="uiSize" class="setting-input" min="25" step="5" placeholder="100">
+    </div>
+  </div>
+  <style>
+    .setting-input {
+      width: 72px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+      font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-align: right;
+    }
+  </style>
+  <script>
+    const SETTINGS_KEY = 'webzen-clock:settings'
+
+    const defaults = { use24h: false, showSeconds: true, showDate: true, uiSize: 100 }
+
+    function loadSettings() {
+      try {
+        return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) }
+      } catch (_e) {
+        return { ...defaults }
+      }
+    }
+
+    function saveSettings(settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    }
+
+    const settings = loadSettings()
+    const use24h = document.getElementById('use24h')
+    const showSeconds = document.getElementById('showSeconds')
+    const showDate = document.getElementById('showDate')
+    const uiSize = document.getElementById('uiSize')
+
+    use24h.checked = settings.use24h
+    showSeconds.checked = settings.showSeconds
+    showDate.checked = settings.showDate
+    uiSize.value = settings.uiSize ?? 100
+
+    function onchange() {
+      const val = parseFloat(uiSize.value)
+      saveSettings({
+        use24h: use24h.checked,
+        showSeconds: showSeconds.checked,
+        showDate: showDate.checked,
+        uiSize: Number.isFinite(val) ? val : 100
+      })
+    }
+
+    use24h.addEventListener('change', onchange)
+    showSeconds.addEventListener('change', onchange)
+    showDate.addEventListener('change', onchange)
+    uiSize.addEventListener('change', onchange)
+    uiSize.addEventListener('blur', onchange)
+  </script>
+</body>
+</html>

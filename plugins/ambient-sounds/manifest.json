@@ -1,0 +1,20 @@
+{
+    "id": "ambient-sounds",
+    "name": "Ambient Sounds",
+    "version": "1.0.0",
+    "description": "Mix nature sounds together for a calming background ambience.",
+    "entry": "index.html",
+    "backstage": "settings.html",
+    "icon": "🌿",
+    "defaultWidth": 240,
+    "defaultHeight": 320,
+    "minWidth": 200,
+    "minHeight": 200,
+    "window": {
+        "transparent": false,
+        "background": "rgba(18, 22, 20, 0.82)",
+        "borderColor": "rgba(255, 255, 255, 0.08)",
+        "backdropFilter": "blur(20px)",
+        "borderRadius": 18
+    }
+}

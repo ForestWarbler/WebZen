@@ -1,0 +1,19 @@
+{
+    "id": "quick-note",
+    "name": "Quick Note",
+    "version": "1.0.0",
+    "description": "A single-page scratchpad for quick notes.",
+    "entry": "index.html",
+    "icon": "📝",
+    "defaultWidth": 320,
+    "defaultHeight": 280,
+    "minWidth": 220,
+    "minHeight": 160,
+    "window": {
+        "transparent": false,
+        "background": "rgba(24, 24, 24, 0.78)",
+        "borderColor": "rgba(255, 255, 255, 0.1)",
+        "backdropFilter": "blur(20px)",
+        "borderRadius": 16
+    }
+}
