@@ -728,6 +728,10 @@ const renderPlugins = () => {
     }
 
     updateManageModeListeners()
+
+    if (!manageMode) {
+        syncBrowserWindows()
+    }
 }
 
 const updateManageModeListeners = () => {
@@ -854,9 +858,12 @@ const setManageMode = (isEnabled) => {
     btnEditWidgets.classList.toggle('active', manageMode)
     btnAddPlugin.disabled = !manageMode
 
+    window.electronAPI?.setBrowserWindowsVisible?.(!manageMode)
+
     if (!manageMode) {
         setPluginPanelOpen(false)
         cancelPluginInteraction()
+        syncBrowserWindows()
     } else {
         renderPlugins()
     }
@@ -868,6 +875,35 @@ const toggleManageMode = () => {
 
 const normalizeAllPlugins = () => {
     renderPlugins()
+}
+
+// --- Browser window sync ---
+const browserWindowSessions = new Set()
+
+const syncBrowserWindows = () => {
+    const activeBrowserIds = new Set()
+
+    plugins.forEach((plugin) => {
+        if (plugin.type !== 'browser') return
+        activeBrowserIds.add(plugin.id)
+
+        const { px, py, w, h } = pluginToPixels(plugin)
+        const bounds = { x: Math.round(px), y: Math.round(py), width: Math.round(w), height: Math.round(h) }
+
+        if (!browserWindowSessions.has(plugin.id)) {
+            window.electronAPI?.createBrowserWindow?.(plugin.id, bounds)
+            browserWindowSessions.add(plugin.id)
+        } else {
+            window.electronAPI?.updateBrowserBounds?.(plugin.id, bounds)
+        }
+    })
+
+    for (const id of browserWindowSessions) {
+        if (!activeBrowserIds.has(id)) {
+            window.electronAPI?.closeBrowserWindow?.(id)
+            browserWindowSessions.delete(id)
+        }
+    }
 }
 
 const loadPluginCatalog = async () => {
