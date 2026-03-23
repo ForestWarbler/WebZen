@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
             callback(isFullscreen)
         })
     },
+    createBrowserWindow: (sessionId, bounds) => ipcRenderer.invoke('create-browser-window', sessionId, bounds),
+    updateBrowserBounds: (sessionId, bounds) => ipcRenderer.invoke('update-browser-bounds', sessionId, bounds),
+    closeBrowserWindow: (sessionId) => ipcRenderer.invoke('close-browser-window', sessionId),
+    setBrowserWindowsVisible: (visible) => ipcRenderer.invoke('set-browser-windows-visible', visible),
     createTerminal: (sessionId) => ipcRenderer.invoke('create-terminal', sessionId),
     writeTerminal: (sessionId, data) => ipcRenderer.invoke('write-terminal', sessionId, data),
     resizeTerminal: (sessionId, cols, rows) => ipcRenderer.invoke('resize-terminal', sessionId, cols, rows),

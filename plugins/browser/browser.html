@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: rgba(16, 18, 22, 1);
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      align-items: flex-end;
+      background: rgba(10, 12, 16, 1);
+      padding: 6px 6px 0;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+      gap: 2px;
+      min-height: 34px;
+    }
+    .tabs {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      gap: 2px;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      max-width: 200px;
+      height: 28px;
+      padding: 0 8px 0 12px;
+      border-radius: 8px 8px 0 0;
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+      border: 1px solid transparent;
+      border-bottom: none;
+    }
+    .tab:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .tab.active {
+      background: rgba(16, 18, 22, 1);
+      color: rgba(255, 255, 255, 0.85);
+      border-color: rgba(255, 255, 255, 0.06);
+    }
+    .tab-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    .tab-close {
+      width: 16px;
+      height: 16px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: background 0.1s, opacity 0.1s, color 0.1s;
+    }
+    .tab:hover .tab-close,
+    .tab.active .tab-close { opacity: 1; }
+    .tab-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .tab-close svg { width: 10px; height: 10px; }
+    .tab-new {
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+      font-weight: 300;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 2px;
+    }
+    .tab-new:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    .nav-btn {
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .nav-btn:active { background: rgba(255, 255, 255, 0.06); }
+    .nav-btn.disabled { opacity: 0.3; pointer-events: none; }
+    .nav-btn svg { width: 14px; height: 14px; }
+
+    .url-bar {
+      flex: 1;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12px;
+      font-family: "SF Mono", "Menlo", "Consolas", monospace;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      min-width: 0;
+    }
+    .url-bar:focus {
+      border-color: rgba(122, 162, 247, 0.5);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .url-bar::placeholder { color: rgba(255, 255, 255, 0.25); }
+    .url-bar::selection { background: rgba(122, 162, 247, 0.35); }
+
+    /* Content */
+    .content {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+    webview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    webview.active { display: flex; }
+
+    .start-page {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: rgba(255, 255, 255, 0.2);
+      user-select: none;
+    }
+    .start-icon { font-size: 36px; opacity: 0.5; }
+    .start-text { font-size: 13px; font-weight: 500; }
+    .shortcuts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      max-width: 320px;
+    }
+    .shortcut-btn {
+      padding: 6px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .shortcut-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.75);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .loading-bar {
+      position: absolute;
+      top: 0; left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(122, 162, 247, 0.8), rgba(125, 207, 255, 0.8));
+      border-radius: 0 1px 1px 0;
+      transition: width 0.3s ease;
+      z-index: 10;
+    }
+    .loading-bar.hidden {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="tab-bar">
+    <div class="tabs" id="tabs"></div>
+    <button class="tab-new" id="btn-new-tab" title="New Tab">+</button>
+  </div>
+  <div class="toolbar">
+    <button class="nav-btn disabled" id="btn-back" title="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+      </svg>
+    </button>
+    <button class="nav-btn disabled" id="btn-forward" title="Forward">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
+      </svg>
+    </button>
+    <button class="nav-btn" id="btn-refresh" title="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 105.34-8.46L1 10"/>
+      </svg>
+    </button>
+    <input class="url-bar" id="url-bar" type="text" placeholder="Search or enter URL…" spellcheck="false" autocomplete="off">
+    <button class="nav-btn" id="btn-home" title="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="content" id="content">
+    <div class="loading-bar hidden" id="loading-bar"></div>
+    <div class="start-page" id="start-page">
+      <span class="start-icon">🌐</span>
+      <span class="start-text">Enter a URL to get started</span>
+      <div class="shortcuts" id="shortcuts"></div>
+    </div>
+  </div>
+
+  <script>
+    const SEARCH_ENGINE = 'https://www.bing.com/search?q='
+    const SHORTCUTS_DATA = [
+      { name: 'Google', url: 'https://www.google.com' },
+      { name: 'Bing', url: 'https://www.bing.com' },
+      { name: 'ChatGPT', url: 'https://chatgpt.com' },
+      { name: 'GitHub', url: 'https://github.com' }
+    ]
+
+    const tabsEl = document.getElementById('tabs')
+    const urlBar = document.getElementById('url-bar')
+    const contentEl = document.getElementById('content')
+    const startPage = document.getElementById('start-page')
+    const loadingBar = document.getElementById('loading-bar')
+    const shortcutsEl = document.getElementById('shortcuts')
+    const btnBack = document.getElementById('btn-back')
+    const btnForward = document.getElementById('btn-forward')
+    const btnRefresh = document.getElementById('btn-refresh')
+    const btnHome = document.getElementById('btn-home')
+    const btnNewTab = document.getElementById('btn-new-tab')
+
+    const CLOSE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+
+    let tabs = []
+    let activeTabId = null
+    let nextTabId = 0
+
+    function normalizeUrl(input) {
+      input = input.trim()
+      if (!input) return null
+      if (/^https?:\/\//i.test(input)) return input
+      if (/^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}(\/|$)/.test(input)) {
+        return 'https://' + input
+      }
+      return SEARCH_ENGINE + encodeURIComponent(input)
+    }
+
+    function showLoading() {
+      loadingBar.classList.remove('hidden')
+      loadingBar.style.width = '0%'
+      requestAnimationFrame(() => { loadingBar.style.width = '70%' })
+    }
+
+    function finishLoading() {
+      loadingBar.style.width = '100%'
+      setTimeout(() => {
+        loadingBar.classList.add('hidden')
+        setTimeout(() => { loadingBar.style.width = '0%' }, 300)
+      }, 200)
+    }
+
+    function getActiveTab() {
+      return tabs.find(t => t.id === activeTabId) || null
+    }
+
+    function updateNav() {
+      const tab = getActiveTab()
+      if (!tab || !tab.webview) {
+        btnBack.classList.add('disabled')
+        btnForward.classList.add('disabled')
+        return
+      }
+      try {
+        btnBack.classList.toggle('disabled', !tab.webview.canGoBack())
+        btnForward.classList.toggle('disabled', !tab.webview.canGoForward())
+      } catch (_e) {}
+    }
+
+    function updateUrlBar() {
+      const tab = getActiveTab()
+      if (!tab) {
+        urlBar.value = ''
+        return
+      }
+      try {
+        urlBar.value = tab.webview.getURL()
+      } catch (_e) {
+        urlBar.value = tab.url || ''
+      }
+    }
+
+    function createWebview(url) {
+      const wv = document.createElement('webview')
+      wv.setAttribute('partition', 'persist:browser')
+      wv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:none;'
+      return wv
+    }
+
+    function wireWebviewEvents(tab) {
+      const wv = tab.webview
+
+      wv.addEventListener('did-start-loading', () => {
+        if (tab.id === activeTabId) showLoading()
+      })
+      wv.addEventListener('did-stop-loading', () => {
+        if (tab.id === activeTabId) {
+          finishLoading()
+          updateNav()
+        }
+      })
+      wv.addEventListener('did-navigate', () => {
+        try { tab.url = wv.getURL() } catch (_e) {}
+        if (tab.id === activeTabId) {
+          updateUrlBar()
+          updateNav()
+        }
+      })
+      wv.addEventListener('did-navigate-in-page', () => {
+        try { tab.url = wv.getURL() } catch (_e) {}
+        if (tab.id === activeTabId) {
+          updateUrlBar()
+          updateNav()
+        }
+      })
+      wv.addEventListener('did-fail-load', (e) => {
+        if (e.errorCode === -3) return
+        if (tab.id === activeTabId) finishLoading()
+      })
+      wv.addEventListener('page-title-updated', (e) => {
+        tab.title = e.title || 'Untitled'
+        renderTabBar()
+      })
+      wv.addEventListener('new-window', (e) => {
+        e.preventDefault()
+        if (e.url) createTab(e.url)
+      })
+    }
+
+    function createTab(url) {
+      const normalized = normalizeUrl(url)
+      if (!normalized) return null
+
+      const id = nextTabId++
+      const wv = createWebview()
+      const tab = { id, title: 'Loading…', url: normalized, webview: wv }
+
+      wireWebviewEvents(tab)
+      contentEl.appendChild(wv)
+      tabs.push(tab)
+
+      wv.src = normalized
+
+      switchTab(id)
+      return tab
+    }
+
+    function closeTab(tabId) {
+      const idx = tabs.findIndex(t => t.id === tabId)
+      if (idx === -1) return
+
+      const tab = tabs[idx]
+      tab.webview.remove()
+      tabs.splice(idx, 1)
+
+      if (tabs.length === 0) {
+        activeTabId = null
+        startPage.style.display = ''
+        urlBar.value = ''
+        updateNav()
+        renderTabBar()
+        return
+      }
+
+      if (activeTabId === tabId) {
+        const newIdx = Math.min(idx, tabs.length - 1)
+        switchTab(tabs[newIdx].id)
+      } else {
+        renderTabBar()
+      }
+    }
+
+    function switchTab(tabId) {
+      activeTabId = tabId
+
+      tabs.forEach(t => {
+        if (t.id === tabId) {
+          t.webview.style.display = 'flex'
+          t.webview.classList.add('active')
+        } else {
+          t.webview.style.display = 'none'
+          t.webview.classList.remove('active')
+        }
+      })
+
+      startPage.style.display = tabs.length > 0 ? 'none' : ''
+      updateUrlBar()
+      updateNav()
+      renderTabBar()
+    }
+
+    function renderTabBar() {
+      tabsEl.innerHTML = ''
+      tabs.forEach(tab => {
+        const el = document.createElement('div')
+        el.className = 'tab' + (tab.id === activeTabId ? ' active' : '')
+
+        const title = document.createElement('span')
+        title.className = 'tab-title'
+        title.textContent = tab.title || 'Untitled'
+
+        const close = document.createElement('button')
+        close.className = 'tab-close'
+        close.innerHTML = CLOSE_SVG
+        close.title = 'Close tab'
+        close.addEventListener('click', (e) => {
+          e.stopPropagation()
+          closeTab(tab.id)
+        })
+
+        el.append(title, close)
+        el.addEventListener('click', () => switchTab(tab.id))
+        el.addEventListener('auxclick', (e) => {
+          if (e.button === 1) { e.preventDefault(); closeTab(tab.id) }
+        })
+        tabsEl.appendChild(el)
+      })
+    }
+
+    function navigateActiveTab(url) {
+      const normalized = normalizeUrl(url)
+      if (!normalized) return
+
+      if (tabs.length === 0) {
+        createTab(url)
+        return
+      }
+
+      const tab = getActiveTab()
+      if (!tab) return
+
+      tab.url = normalized
+      urlBar.value = normalized
+      showLoading()
+      tab.webview.loadURL(normalized)
+    }
+
+    SHORTCUTS_DATA.forEach(s => {
+      const btn = document.createElement('button')
+      btn.className = 'shortcut-btn'
+      btn.textContent = s.name
+      btn.addEventListener('click', () => createTab(s.url))
+      shortcutsEl.appendChild(btn)
+    })
+
+    urlBar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        navigateActiveTab(urlBar.value)
+        urlBar.blur()
+      }
+    })
+    urlBar.addEventListener('focus', () => urlBar.select())
+
+    btnBack.addEventListener('click', () => {
+      const tab = getActiveTab()
+      if (tab?.webview) try { tab.webview.goBack() } catch (_e) {}
+    })
+    btnForward.addEventListener('click', () => {
+      const tab = getActiveTab()
+      if (tab?.webview) try { tab.webview.goForward() } catch (_e) {}
+    })
+    btnRefresh.addEventListener('click', () => {
+      const tab = getActiveTab()
+      if (tab?.webview) try { tab.webview.reload() } catch (_e) {}
+    })
+    btnHome.addEventListener('click', () => {
+      const tab = getActiveTab()
+      if (tab) closeTab(tab.id)
+    })
+    btnNewTab.addEventListener('click', () => {
+      if (tabs.length === 0) {
+        startPage.style.display = ''
+        urlBar.value = ''
+        urlBar.focus()
+      } else {
+        createTab('https://www.bing.com')
+      }
+    })
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') { e.preventDefault(); urlBar.focus() }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+        e.preventDefault()
+        const tab = getActiveTab()
+        if (tab?.webview) tab.webview.reload()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault()
+        btnNewTab.click()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault()
+        const tab = getActiveTab()
+        if (tab) closeTab(tab.id)
+      }
+    })
+  </script>
+</body>
+</html>
