@@ -1,0 +1,19 @@
+{
+    "id": "terminal",
+    "name": "Terminal",
+    "version": "1.0.0",
+    "description": "Built-in terminal: zsh on macOS, PowerShell on Windows.",
+    "entry": "index.html",
+    "icon": "⌨",
+    "defaultWidth": 560,
+    "defaultHeight": 360,
+    "minWidth": 360,
+    "minHeight": 200,
+    "window": {
+        "transparent": false,
+        "background": "rgba(14, 16, 20, 0.88)",
+        "borderColor": "rgba(255, 255, 255, 0.08)",
+        "backdropFilter": "blur(24px)",
+        "borderRadius": 16
+    }
+}

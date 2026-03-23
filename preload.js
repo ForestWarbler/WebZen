@@ -12,5 +12,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('fullscreen-changed', (_event, isFullscreen) => {
             callback(isFullscreen)
         })
+    },
+    createTerminal: (sessionId) => ipcRenderer.invoke('create-terminal', sessionId),
+    writeTerminal: (sessionId, data) => ipcRenderer.invoke('write-terminal', sessionId, data),
+    resizeTerminal: (sessionId, cols, rows) => ipcRenderer.invoke('resize-terminal', sessionId, cols, rows),
+    closeTerminal: (sessionId) => ipcRenderer.invoke('close-terminal', sessionId),
+    onTerminalData: (callback) => {
+        ipcRenderer.on('terminal-data', (_event, payload) => callback(payload))
+    },
+    onTerminalExit: (callback) => {
+        ipcRenderer.on('terminal-exit', (_event, payload) => callback(payload))
     }
 })

@@ -3,6 +3,15 @@ const fs = require('fs/promises')
 const path = require('path')
 const { pathToFileURL } = require('url')
 
+let pty
+try {
+    pty = require('node-pty')
+} catch (_e) {
+    console.warn('node-pty not available. Terminal plugin will not work.')
+}
+
+const terminalSessions = new Map()
+
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif'])
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg'])
 const DEFAULT_WINDOW_STATE = {
@@ -340,8 +349,76 @@ app.whenReady().then(async () => {
         await fs.mkdir(userDir, { recursive: true })
         shell.openPath(userDir)
     })
+
+    // --- Terminal IPC ---
+    ipcMain.handle('create-terminal', (event, sessionId) => {
+        if (!pty) {
+            return { error: 'node-pty is not installed. Run: npm install node-pty && npx @electron/rebuild' }
+        }
+
+        const existing = terminalSessions.get(sessionId)
+        if (existing) {
+            try { existing.kill() } catch (_e) { /* ignore */ }
+            terminalSessions.delete(sessionId)
+        }
+
+        const isWin = process.platform === 'win32'
+        const shellPath = isWin
+            ? 'powershell.exe'
+            : (process.env.SHELL || '/bin/zsh')
+
+        const terminal = pty.spawn(shellPath, [], {
+            name: 'xterm-256color',
+            cols: 80,
+            rows: 24,
+            cwd: process.env.HOME || process.env.USERPROFILE || '/',
+            env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' }
+        })
+
+        const win = BrowserWindow.fromWebContents(event.sender)
+        terminalSessions.set(sessionId, terminal)
+
+        terminal.onData((data) => {
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('terminal-data', { sessionId, data })
+            }
+        })
+
+        terminal.onExit(({ exitCode }) => {
+            terminalSessions.delete(sessionId)
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('terminal-exit', { sessionId, exitCode })
+            }
+        })
+
+        return { shell: path.basename(shellPath), pid: terminal.pid }
+    })
+
+    ipcMain.handle('write-terminal', (_event, sessionId, data) => {
+        const terminal = terminalSessions.get(sessionId)
+        if (terminal) terminal.write(data)
+    })
+
+    ipcMain.handle('resize-terminal', (_event, sessionId, cols, rows) => {
+        const terminal = terminalSessions.get(sessionId)
+        if (terminal) {
+            try { terminal.resize(Math.max(cols, 1), Math.max(rows, 1)) } catch (_e) { /* ignore */ }
+        }
+    })
+
+    ipcMain.handle('close-terminal', (_event, sessionId) => {
+        const terminal = terminalSessions.get(sessionId)
+        if (terminal) {
+            try { terminal.kill() } catch (_e) { /* ignore */ }
+            terminalSessions.delete(sessionId)
+        }
+    })
 })
 
 app.on('window-all-closed', () => {
+    for (const [id, terminal] of terminalSessions) {
+        try { terminal.kill() } catch (_e) { /* ignore */ }
+    }
+    terminalSessions.clear()
     if (process.platform !== 'darwin') app.quit()
 })

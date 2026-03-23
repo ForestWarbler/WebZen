@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+    .terminal-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .terminal-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(80, 200, 120, 0.7);
+      flex-shrink: 0;
+    }
+    .terminal-dot.exited {
+      background: rgba(255, 90, 80, 0.7);
+    }
+    .terminal-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .terminal-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .terminal-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .terminal-btn svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    #terminal-container {
+      flex: 1;
+      overflow: hidden;
+      padding: 2px 0 2px 6px;
+    }
+
+    .xterm {
+      height: 100%;
+      padding: 4px 0;
+    }
+    .xterm-viewport::-webkit-scrollbar {
+      width: 6px;
+    }
+    .xterm-viewport::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .xterm-viewport::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    .xterm-viewport::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .terminal-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .terminal-status-icon {
+      font-size: 22px;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="terminal-header">
+    <div class="terminal-title">
+      <span class="terminal-dot" id="status-dot"></span>
+      <span id="shell-label">Terminal</span>
+    </div>
+    <div class="terminal-actions">
+      <button class="terminal-btn" id="btn-restart" title="Restart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 4v6h6"/>
+          <path d="M3.51 15a9 9 0 105.34-8.46L1 10"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="terminal-container">
+    <div class="terminal-status" id="terminal-status">
+      <span class="terminal-status-icon">⌨</span>
+      <span>Initializing terminal…</span>
+    </div>
+  </div>
+
+  <script src="vendor/xterm.js"></script>
+  <script src="vendor/xterm-addon-fit.js"></script>
+  <script>
+    const statusEl = document.getElementById('terminal-status')
+    const containerEl = document.getElementById('terminal-container')
+    const shellLabel = document.getElementById('shell-label')
+    const statusDot = document.getElementById('status-dot')
+    const btnRestart = document.getElementById('btn-restart')
+
+    let term = null
+    let fitAddon = null
+    let alive = false
+
+    const THEME = {
+      background: 'transparent',
+      foreground: '#c8cdd8',
+      cursor: 'rgba(129, 191, 255, 0.72)',
+      cursorAccent: '#0e1014',
+      selectionBackground: 'rgba(129, 191, 255, 0.22)',
+      selectionForeground: undefined,
+      black: '#1a1b26',
+      red: '#f7768e',
+      green: '#9ece6a',
+      yellow: '#e0af68',
+      blue: '#7aa2f7',
+      magenta: '#bb9af7',
+      cyan: '#7dcfff',
+      white: '#a9b1d6',
+      brightBlack: '#545c7e',
+      brightRed: '#ff7a93',
+      brightGreen: '#b9f27c',
+      brightYellow: '#ff9e64',
+      brightBlue: '#7da6ff',
+      brightMagenta: '#c0a6ff',
+      brightCyan: '#89ddff',
+      brightWhite: '#c0caf5'
+    }
+
+    function createTerminal() {
+      if (term) {
+        term.dispose()
+        term = null
+        fitAddon = null
+      }
+
+      statusEl.style.display = 'none'
+
+      const FitAddonClass = (window.FitAddon && window.FitAddon.FitAddon)
+        ? window.FitAddon.FitAddon
+        : window.FitAddon
+
+      term = new Terminal({
+        theme: THEME,
+        fontFamily: '"SF Mono", "Menlo", "Monaco", "Cascadia Code", "Consolas", monospace',
+        fontSize: 13,
+        lineHeight: 1.35,
+        cursorBlink: true,
+        cursorStyle: 'bar',
+        allowTransparency: true,
+        scrollback: 5000,
+        drawBoldTextInBrightColors: true,
+        minimumContrastRatio: 1
+      })
+
+      fitAddon = new FitAddonClass()
+      term.loadAddon(fitAddon)
+
+      term.open(containerEl)
+
+      requestAnimationFrame(() => {
+        fitAddon.fit()
+      })
+
+      term.onData((data) => {
+        window.parent.postMessage({
+          type: 'webzen:terminal:write',
+          data: data
+        }, '*')
+      })
+
+      term.onResize(({ cols, rows }) => {
+        window.parent.postMessage({
+          type: 'webzen:terminal:resize',
+          cols: cols,
+          rows: rows
+        }, '*')
+      })
+
+      window.parent.postMessage({
+        type: 'webzen:terminal:create'
+      }, '*')
+
+      alive = true
+      statusDot.classList.remove('exited')
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data
+      if (!msg || !msg.type) return
+
+      if (msg.type === 'webzen:terminal:data' && term) {
+        term.write(msg.data)
+      } else if (msg.type === 'webzen:terminal:ready') {
+        if (msg.shell) {
+          shellLabel.textContent = msg.shell
+        }
+        if (term) {
+          requestAnimationFrame(() => {
+            fitAddon.fit()
+          })
+        }
+      } else if (msg.type === 'webzen:terminal:exit') {
+        alive = false
+        statusDot.classList.add('exited')
+        if (term) {
+          term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n')
+        }
+      } else if (msg.type === 'webzen:terminal:error') {
+        alive = false
+        statusDot.classList.add('exited')
+        containerEl.innerHTML = ''
+        statusEl.style.display = ''
+        statusEl.innerHTML = `
+          <span class="terminal-status-icon">⚠️</span>
+          <span>${msg.message || 'Failed to start terminal'}</span>
+        `
+      }
+    })
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddon && term) {
+        requestAnimationFrame(() => {
+          try { fitAddon.fit() } catch (_e) { /* ignore */ }
+        })
+      }
+    })
+    resizeObserver.observe(containerEl)
+
+    btnRestart.addEventListener('click', () => {
+      window.parent.postMessage({ type: 'webzen:terminal:dispose' }, '*')
+      containerEl.innerHTML = ''
+      statusEl.style.display = ''
+      statusEl.innerHTML = `
+        <span class="terminal-status-icon">⌨</span>
+        <span>Restarting terminal…</span>
+      `
+      setTimeout(createTerminal, 200)
+    })
+
+    createTerminal()
+  </script>
+</body>
+</html>
