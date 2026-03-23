@@ -2,7 +2,7 @@
   "name": "webzen",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "test-electron.js",
   "scripts": {
     "start": "electron .",
     "postinstall": "node scripts/setup-terminal-vendor.js && npx @electron/rebuild -f -w node-pty 2>/dev/null || true",

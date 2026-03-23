@@ -723,6 +723,7 @@ const renderPlugins = () => {
         if (!activeIds.has(id)) {
             element.remove()
             pluginElements.delete(id)
+            window.electronAPI?.closeTerminal?.(id)
         }
     }
 
@@ -885,8 +886,19 @@ const loadPluginCatalog = async () => {
 
 loadPluginCatalog()
 
+const findPluginIdBySource = (source) => {
+    const iframe = Array.from(widgetLayer.querySelectorAll('.plugin-iframe')).find(
+        (f) => f.contentWindow === source
+    )
+    if (!iframe) return null
+    const pluginWindow = iframe.closest('.plugin-window')
+    return pluginWindow?.dataset?.pluginId || null
+}
+
 window.addEventListener('message', (event) => {
-    if (event.data?.type === 'webzen:set-window-visible') {
+    const msgType = event.data?.type
+
+    if (msgType === 'webzen:set-window-visible') {
         const iframe = Array.from(widgetLayer.querySelectorAll('.plugin-iframe')).find(
             (f) => f.contentWindow === event.source
         )
@@ -894,6 +906,68 @@ window.addEventListener('message', (event) => {
         const pluginWindow = iframe.closest('.plugin-window')
         if (!pluginWindow) return
         pluginWindow.style.display = event.data.visible ? '' : 'none'
+        return
+    }
+
+    if (msgType === 'webzen:terminal:create') {
+        const pluginId = findPluginIdBySource(event.source)
+        if (!pluginId) return
+        window.electronAPI?.createTerminal?.(pluginId).then((result) => {
+            if (result?.error) {
+                event.source.postMessage({
+                    type: 'webzen:terminal:error',
+                    message: result.error
+                }, '*')
+            } else {
+                event.source.postMessage({
+                    type: 'webzen:terminal:ready',
+                    shell: result.shell,
+                    pid: result.pid
+                }, '*')
+            }
+        }).catch((err) => {
+            event.source.postMessage({
+                type: 'webzen:terminal:error',
+                message: err.message || 'Failed to create terminal'
+            }, '*')
+        })
+        return
+    }
+
+    if (msgType === 'webzen:terminal:write') {
+        const pluginId = findPluginIdBySource(event.source)
+        if (pluginId) window.electronAPI?.writeTerminal?.(pluginId, event.data.data)
+        return
+    }
+
+    if (msgType === 'webzen:terminal:resize') {
+        const pluginId = findPluginIdBySource(event.source)
+        if (pluginId) window.electronAPI?.resizeTerminal?.(pluginId, event.data.cols, event.data.rows)
+        return
+    }
+
+    if (msgType === 'webzen:terminal:dispose') {
+        const pluginId = findPluginIdBySource(event.source)
+        if (pluginId) window.electronAPI?.closeTerminal?.(pluginId)
+        return
+    }
+})
+
+window.electronAPI?.onTerminalData?.(({ sessionId, data }) => {
+    const pluginWindow = widgetLayer.querySelector(`.plugin-window[data-plugin-id="${sessionId}"]`)
+    if (!pluginWindow) return
+    const iframe = pluginWindow.querySelector('.plugin-iframe')
+    if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage({ type: 'webzen:terminal:data', data }, '*')
+    }
+})
+
+window.electronAPI?.onTerminalExit?.(({ sessionId, exitCode }) => {
+    const pluginWindow = widgetLayer.querySelector(`.plugin-window[data-plugin-id="${sessionId}"]`)
+    if (!pluginWindow) return
+    const iframe = pluginWindow.querySelector('.plugin-iframe')
+    if (iframe?.contentWindow) {
+        iframe.contentWindow.postMessage({ type: 'webzen:terminal:exit', exitCode }, '*')
     }
 })
 
