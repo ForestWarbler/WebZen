@@ -103,6 +103,9 @@
       flex-shrink: 0;
       align-items: start;
     }
+    .add-form.hidden {
+      display: none;
+    }
     .add-fields {
       min-width: 0;
       display: flex;
@@ -190,13 +193,45 @@
     }
     .todo-item {
       display: grid;
-      grid-template-columns: 26px minmax(0, 1fr) 28px;
-      gap: 8px;
+      grid-template-columns: 18px 26px minmax(0, 1fr) 28px;
+      gap: 7px;
       padding: 10px 8px 10px 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      transition: background 0.15s ease, opacity 0.15s ease;
     }
     .todo-item:last-child {
       border-bottom: none;
+    }
+    .todo-item.is-dragging {
+      opacity: 0.45;
+    }
+    .todo-item.drop-before {
+      box-shadow: inset 0 2px 0 var(--accent);
+    }
+    .todo-item.drop-after {
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+    .drag-handle {
+      width: 18px;
+      height: 24px;
+      margin-top: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.24);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: 760 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: grab;
+      user-select: none;
+    }
+    .drag-handle:hover {
+      color: rgba(255, 255, 255, 0.58);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .drag-handle:active {
+      cursor: grabbing;
     }
     .check {
       width: 20px;
@@ -351,6 +386,7 @@
         <div class="count" id="count">0 open</div>
       </div>
       <div class="font-controls">
+        <button class="icon-btn" id="toggle-add" type="button" title="Hide add form">-</button>
         <button class="icon-btn" id="font-smaller" type="button" title="Decrease font size">A-</button>
         <span class="font-size" id="font-size-label">14px</span>
         <button class="icon-btn" id="font-larger" type="button" title="Increase font size">A+</button>
@@ -371,6 +407,7 @@
 
   <template id="todo-template">
     <article class="todo-item">
+      <button class="drag-handle" type="button" draggable="true" title="Drag to reorder">=</button>
       <button class="check" type="button" title="Mark complete">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 6L9 17l-5-5"></path>
@@ -399,6 +436,7 @@
   <script>
     const ITEMS_KEY = 'webzen-todo-list:items'
     const FONT_SIZE_KEY = 'webzen-todo-list:fontSize'
+    const ADD_VISIBLE_KEY = 'webzen-todo-list:addVisible'
     const MIN_FONT_SIZE = 12
     const MAX_FONT_SIZE = 22
     const DEFAULT_FONT_SIZE = 14
@@ -407,16 +445,21 @@
     const countEl = document.getElementById('count')
     const listEl = document.getElementById('todo-list')
     const template = document.getElementById('todo-template')
+    const addForm = document.getElementById('add-form')
     const newTitle = document.getElementById('new-title')
     const newNote = document.getElementById('new-note')
     const newDate = document.getElementById('new-date')
     const addTodo = document.getElementById('add-todo')
+    const toggleAdd = document.getElementById('toggle-add')
     const fontSmaller = document.getElementById('font-smaller')
     const fontLarger = document.getElementById('font-larger')
     const fontSizeLabel = document.getElementById('font-size-label')
 
     let items = loadItems()
     let fontSize = loadFontSize()
+    let addVisible = loadAddVisible()
+    let draggedId = null
+    let dropTarget = null
 
     function uid() {
       return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -454,10 +497,25 @@
       return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, value))
     }
 
+    function loadAddVisible() {
+      return localStorage.getItem(ADD_VISIBLE_KEY) !== 'false'
+    }
+
     function applyFontSize() {
       app.style.setProperty('--todo-font-size', `${fontSize}px`)
       fontSizeLabel.textContent = `${fontSize}px`
       localStorage.setItem(FONT_SIZE_KEY, String(fontSize))
+    }
+
+    function applyAddVisibility(shouldFocus = false) {
+      addForm.classList.toggle('hidden', !addVisible)
+      toggleAdd.textContent = addVisible ? '-' : '+'
+      toggleAdd.title = addVisible ? 'Hide add form' : 'Show add form'
+      localStorage.setItem(ADD_VISIBLE_KEY, String(addVisible))
+
+      if (shouldFocus && addVisible) {
+        newTitle.focus()
+      }
     }
 
     function todayValue() {
@@ -509,6 +567,25 @@
       render()
     }
 
+    function clearDropIndicators() {
+      listEl.querySelectorAll('.drop-before, .drop-after').forEach((node) => {
+        node.classList.remove('drop-before', 'drop-after')
+      })
+    }
+
+    function moveItem(dragId, targetId, placeAfter) {
+      if (!dragId || !targetId || dragId === targetId) return
+
+      const fromIndex = items.findIndex((item) => item.id === dragId)
+      if (fromIndex === -1 || !items.some((item) => item.id === targetId)) return
+
+      const [moved] = items.splice(fromIndex, 1)
+      const adjustedTargetIndex = items.findIndex((item) => item.id === targetId)
+      items.splice(adjustedTargetIndex + (placeAfter ? 1 : 0), 0, moved)
+      saveItems()
+      render()
+    }
+
     function renderEmpty() {
       const empty = document.createElement('div')
       empty.className = 'empty'
@@ -518,6 +595,7 @@
 
     function renderItem(item) {
       const node = template.content.firstElementChild.cloneNode(true)
+      const dragHandle = node.querySelector('.drag-handle')
       const check = node.querySelector('.check')
       const title = node.querySelector('.todo-title')
       const date = node.querySelector('.item-date')
@@ -536,6 +614,20 @@
       due.className = `due-pill ${dueText ? 'visible' : ''} ${dueClass(item.dueDate)}`.trim()
 
       check.title = item.completed ? 'Mark incomplete' : 'Mark complete'
+      dragHandle.addEventListener('dragstart', (event) => {
+        draggedId = item.id
+        node.classList.add('is-dragging')
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', item.id)
+      })
+
+      dragHandle.addEventListener('dragend', () => {
+        draggedId = null
+        dropTarget = null
+        node.classList.remove('is-dragging')
+        clearDropIndicators()
+      })
+
       check.addEventListener('click', () => {
         item.completed = !item.completed
         item.updatedAt = Date.now()
@@ -607,6 +699,46 @@
 
     addTodo.addEventListener('click', addNewTodo)
 
+    toggleAdd.addEventListener('click', () => {
+      addVisible = !addVisible
+      applyAddVisibility(true)
+    })
+
+    listEl.addEventListener('dragover', (event) => {
+      if (!draggedId) return
+
+      const target = event.target.closest('.todo-item')
+      if (!target || target.dataset.id === draggedId) {
+        dropTarget = null
+        clearDropIndicators()
+        return
+      }
+
+      event.preventDefault()
+      const rect = target.getBoundingClientRect()
+      const placeAfter = event.clientY > rect.top + rect.height / 2
+
+      clearDropIndicators()
+      target.classList.add(placeAfter ? 'drop-after' : 'drop-before')
+      dropTarget = { id: target.dataset.id, placeAfter }
+    })
+
+    listEl.addEventListener('drop', (event) => {
+      if (!draggedId || !dropTarget) return
+
+      event.preventDefault()
+      moveItem(draggedId, dropTarget.id, dropTarget.placeAfter)
+      draggedId = null
+      dropTarget = null
+      clearDropIndicators()
+    })
+
+    listEl.addEventListener('dragleave', (event) => {
+      if (listEl.contains(event.relatedTarget)) return
+      dropTarget = null
+      clearDropIndicators()
+    })
+
     ;[newTitle, newNote, newDate].forEach((field) => {
       field.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
@@ -627,6 +759,7 @@
     })
 
     applyFontSize()
+    applyAddVisibility()
     render()
   </script>
 </body>
