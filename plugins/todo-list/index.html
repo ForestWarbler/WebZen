@@ -96,15 +96,22 @@
     }
     .add-form {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 122px 34px;
+      grid-template-columns: minmax(0, 1fr) 118px 34px;
       gap: 8px;
       padding: 10px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       flex-shrink: 0;
+      align-items: start;
+    }
+    .add-fields {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
     .input,
     .date-input,
-    .note-input {
+    .item-note {
       min-width: 0;
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
@@ -119,18 +126,23 @@
       padding: 0 10px;
       font: 570 var(--todo-font-size)/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
+    .add-note {
+      height: 30px;
+      font-size: calc(var(--todo-font-size) - 2px);
+      font-weight: 500;
+    }
     .date-input {
       color-scheme: dark;
       font-size: 12px;
       font-weight: 560;
     }
     .input::placeholder,
-    .note-input::placeholder {
+    .item-note::placeholder {
       color: rgba(255, 255, 255, 0.32);
     }
     .input:focus,
     .date-input:focus,
-    .note-input:focus {
+    .item-note:focus {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(79, 179, 255, 0.7);
       box-shadow: 0 0 0 3px rgba(79, 179, 255, 0.14);
@@ -221,9 +233,15 @@
     }
     .todo-title-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 126px;
+      grid-template-columns: minmax(0, 1fr) 118px;
       gap: 8px;
-      align-items: center;
+      align-items: start;
+    }
+    .todo-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
     .todo-title {
       min-width: 0;
@@ -234,26 +252,37 @@
       font: 620 var(--todo-font-size)/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       text-overflow: ellipsis;
     }
+    .item-note {
+      width: 100%;
+      min-height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.5);
+      font: 500 calc(var(--todo-font-size) - 2px)/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
     .todo-title:focus {
       color: rgba(255, 255, 255, 1);
+    }
+    .item-note:focus {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      color: rgba(255, 255, 255, 0.72);
     }
     .todo-item.completed .todo-title {
       color: rgba(255, 255, 255, 0.42);
       text-decoration: line-through;
+    }
+    .todo-item.completed .item-note {
+      color: rgba(255, 255, 255, 0.32);
     }
     .item-date {
       height: 28px;
       padding: 0 8px;
       font-size: 12px;
       border-radius: 7px;
-    }
-    .note-input {
-      width: 100%;
-      min-height: 54px;
-      max-height: 110px;
-      resize: vertical;
-      padding: 8px 10px;
-      font: 500 calc(var(--todo-font-size) - 1px)/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .meta {
       display: flex;
@@ -307,10 +336,7 @@
       .todo-title-row {
         grid-template-columns: minmax(0, 1fr) 34px;
       }
-      .add-form .date-input {
-        grid-column: 1 / -1;
-        grid-row: 2;
-      }
+      .add-form .date-input,
       .todo-title-row .item-date {
         grid-column: 1 / -1;
       }
@@ -331,11 +357,14 @@
       </div>
     </header>
 
-    <form class="add-form" id="add-form">
-      <input class="input" id="new-title" type="text" placeholder="New todo" autocomplete="off">
+    <div class="add-form" id="add-form">
+      <div class="add-fields">
+        <input class="input" id="new-title" type="text" placeholder="New todo" autocomplete="off">
+        <input class="input add-note" id="new-note" type="text" placeholder="Note" autocomplete="off">
+      </div>
       <input class="date-input" id="new-date" type="date" title="Due date">
-      <button class="add-btn" type="submit" title="Add todo">+</button>
-    </form>
+      <button class="add-btn" id="add-todo" type="button" title="Add todo">+</button>
+    </div>
 
     <section class="todo-list" id="todo-list" aria-live="polite"></section>
   </main>
@@ -349,10 +378,12 @@
       </button>
       <div class="todo-main">
         <div class="todo-title-row">
-          <input class="todo-title" type="text" autocomplete="off">
+          <div class="todo-text">
+            <input class="todo-title" type="text" autocomplete="off">
+            <input class="item-note" type="text" placeholder="Note" autocomplete="off">
+          </div>
           <input class="date-input item-date" type="date" title="Due date">
         </div>
-        <textarea class="note-input" placeholder="Note"></textarea>
         <div class="meta">
           <span class="due-pill"></span>
         </div>
@@ -376,9 +407,10 @@
     const countEl = document.getElementById('count')
     const listEl = document.getElementById('todo-list')
     const template = document.getElementById('todo-template')
-    const addForm = document.getElementById('add-form')
     const newTitle = document.getElementById('new-title')
+    const newNote = document.getElementById('new-note')
     const newDate = document.getElementById('new-date')
+    const addTodo = document.getElementById('add-todo')
     const fontSmaller = document.getElementById('font-smaller')
     const fontLarger = document.getElementById('font-larger')
     const fontSizeLabel = document.getElementById('font-size-label')
@@ -489,7 +521,7 @@
       const check = node.querySelector('.check')
       const title = node.querySelector('.todo-title')
       const date = node.querySelector('.item-date')
-      const note = node.querySelector('.note-input')
+      const note = node.querySelector('.item-note')
       const due = node.querySelector('.due-pill')
       const deleteBtn = node.querySelector('.delete-btn')
 
@@ -549,27 +581,39 @@
       items.forEach(renderItem)
     }
 
-    addForm.addEventListener('submit', (event) => {
-      event.preventDefault()
+    function addNewTodo() {
       const title = newTitle.value.trim()
+      const note = newNote.value.trim()
       const dueDate = newDate.value
-      if (!title && !dueDate) return
+      if (!title && !note && !dueDate) return
 
       items.unshift(normalizeItem({
         id: uid(),
         title: title || 'Untitled',
         dueDate,
-        note: '',
+        note,
         completed: false,
         createdAt: Date.now(),
         updatedAt: Date.now()
       }))
 
       newTitle.value = ''
+      newNote.value = ''
       newDate.value = ''
       saveItems()
       render()
       newTitle.focus()
+    }
+
+    addTodo.addEventListener('click', addNewTodo)
+
+    ;[newTitle, newNote, newDate].forEach((field) => {
+      field.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          addNewTodo()
+        }
+      })
     })
 
     fontSmaller.addEventListener('click', () => {
