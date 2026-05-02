@@ -102,9 +102,25 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       flex-shrink: 0;
       align-items: start;
+      max-height: 160px;
+      opacity: 1;
+      overflow: hidden;
+      transform: translateY(0);
+      transition:
+        max-height 0.24s ease,
+        opacity 0.18s ease,
+        padding 0.24s ease,
+        transform 0.24s ease,
+        border-color 0.24s ease;
     }
     .add-form.hidden {
-      display: none;
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-bottom-color: transparent;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-12px);
     }
     .add-fields {
       min-width: 0;
@@ -197,7 +213,12 @@
       gap: 7px;
       padding: 10px 8px 10px 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      transition: background 0.15s ease, opacity 0.15s ease;
+      will-change: transform;
+      transition:
+        background 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease,
+        transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .todo-item:last-child {
       border-bottom: none;
@@ -207,9 +228,11 @@
     }
     .todo-item.drop-before {
       box-shadow: inset 0 2px 0 var(--accent);
+      background: rgba(79, 179, 255, 0.06);
     }
     .todo-item.drop-after {
       box-shadow: inset 0 -2px 0 var(--accent);
+      background: rgba(79, 179, 255, 0.06);
     }
     .drag-handle {
       width: 18px;
@@ -509,8 +532,13 @@
 
     function applyAddVisibility(shouldFocus = false) {
       addForm.classList.toggle('hidden', !addVisible)
+      addForm.setAttribute('aria-hidden', String(!addVisible))
+      ;[newTitle, newNote, newDate, addTodo].forEach((field) => {
+        field.tabIndex = addVisible ? 0 : -1
+      })
       toggleAdd.textContent = addVisible ? '-' : '+'
       toggleAdd.title = addVisible ? 'Hide add form' : 'Show add form'
+      toggleAdd.setAttribute('aria-expanded', String(addVisible))
       localStorage.setItem(ADD_VISIBLE_KEY, String(addVisible))
 
       if (shouldFocus && addVisible) {
@@ -573,9 +601,48 @@
       })
     }
 
+    function captureItemRects() {
+      const rects = new Map()
+      listEl.querySelectorAll('.todo-item').forEach((node) => {
+        rects.set(node.dataset.id, node.getBoundingClientRect())
+      })
+      return rects
+    }
+
+    function animateItemMoves(previousRects) {
+      if (!previousRects || previousRects.size === 0) return
+
+      const nodes = Array.from(listEl.querySelectorAll('.todo-item'))
+      nodes.forEach((node) => {
+        const previous = previousRects.get(node.dataset.id)
+        if (!previous) return
+
+        const current = node.getBoundingClientRect()
+        const deltaX = previous.left - current.left
+        const deltaY = previous.top - current.top
+        if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return
+
+        node.style.transition = 'none'
+        node.style.transform = `translate(${deltaX}px, ${deltaY}px)`
+      })
+
+      listEl.getBoundingClientRect()
+      requestAnimationFrame(() => {
+        nodes.forEach((node) => {
+          if (!node.style.transform) return
+          node.style.transition = ''
+          node.style.transform = 'translate(0, 0)'
+          setTimeout(() => {
+            node.style.transform = ''
+          }, 260)
+        })
+      })
+    }
+
     function moveItem(dragId, targetId, placeAfter) {
       if (!dragId || !targetId || dragId === targetId) return
 
+      const previousRects = captureItemRects()
       const fromIndex = items.findIndex((item) => item.id === dragId)
       if (fromIndex === -1 || !items.some((item) => item.id === targetId)) return
 
@@ -583,7 +650,7 @@
       const adjustedTargetIndex = items.findIndex((item) => item.id === targetId)
       items.splice(adjustedTargetIndex + (placeAfter ? 1 : 0), 0, moved)
       saveItems()
-      render()
+      render(previousRects)
     }
 
     function renderEmpty() {
@@ -661,7 +728,7 @@
       listEl.append(node)
     }
 
-    function render() {
+    function render(previousRects = null) {
       listEl.innerHTML = ''
       updateCount()
 
@@ -671,6 +738,7 @@
       }
 
       items.forEach(renderItem)
+      animateItemMoves(previousRects)
     }
 
     function addNewTodo() {
@@ -679,6 +747,7 @@
       const dueDate = newDate.value
       if (!title && !note && !dueDate) return
 
+      const previousRects = captureItemRects()
       items.unshift(normalizeItem({
         id: uid(),
         title: title || 'Untitled',
@@ -693,7 +762,7 @@
       newNote.value = ''
       newDate.value = ''
       saveItems()
-      render()
+      render(previousRects)
       newTitle.focus()
     }
 
