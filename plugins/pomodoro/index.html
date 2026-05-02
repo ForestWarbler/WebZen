@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .timer {
+      width: 100%;
+      height: 100%;
+      min-width: 220px;
+      min-height: 250px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+    }
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .mode-tab {
+      min-width: 0;
+      height: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.58);
+      font: 650 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+    .mode-tab:hover {
+      background: rgba(255, 255, 255, 0.11);
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .mode-tab.active {
+      border-color: color-mix(in srgb, var(--accent), white 18%);
+      background: color-mix(in srgb, var(--accent), transparent 72%);
+      color: rgba(255, 255, 255, 0.94);
+    }
+    .dial {
+      flex: 1;
+      min-height: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ring {
+      width: 142px;
+      height: 142px;
+      border-radius: 50%;
+      padding: 8px;
+      background:
+        conic-gradient(var(--accent) var(--progress), rgba(255, 255, 255, 0.09) 0),
+        rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      transition: background 0.2s ease;
+    }
+    .ring-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(16, 18, 18, 0.78);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.28);
+    }
+    .time {
+      font-size: 38px;
+      font-weight: 760;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.96);
+    }
+    .status {
+      max-width: 104px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--accent-soft);
+    }
+    .summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 22px;
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 12px;
+      font-weight: 560;
+    }
+    .dots {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .dot.done {
+      background: var(--accent);
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent), transparent 42%);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 42px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .control-btn {
+      height: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.86);
+      font: 720 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.13);
+    }
+    .control-btn:active {
+      transform: translateY(1px);
+    }
+    .control-btn.primary {
+      background: var(--accent);
+      border-color: color-mix(in srgb, var(--accent), white 18%);
+      color: rgba(14, 16, 16, 0.94);
+    }
+    .control-btn.primary:hover {
+      background: color-mix(in srgb, var(--accent), white 10%);
+    }
+    @media (max-height: 270px) {
+      .timer {
+        gap: 8px;
+        padding: 12px;
+      }
+      .ring {
+        width: 116px;
+        height: 116px;
+      }
+      .time {
+        font-size: 32px;
+      }
+      .controls {
+        gap: 6px;
+      }
+      .control-btn {
+        height: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="timer" id="timer">
+    <div class="mode-tabs" role="tablist" aria-label="Pomodoro mode">
+      <button class="mode-tab" data-mode="focus" type="button">Focus</button>
+      <button class="mode-tab" data-mode="shortBreak" type="button">Short</button>
+      <button class="mode-tab" data-mode="longBreak" type="button">Long</button>
+    </div>
+    <section class="dial" aria-live="polite">
+      <div class="ring" id="ring">
+        <div class="ring-inner">
+          <div class="time" id="time">25:00</div>
+          <div class="status" id="status">Ready</div>
+        </div>
+      </div>
+    </section>
+    <div class="summary">
+      <span id="session-label">0 / 4</span>
+      <span class="dots" id="dots" aria-hidden="true"></span>
+    </div>
+    <div class="controls">
+      <button class="control-btn" id="reset" type="button" title="Reset">↺</button>
+      <button class="control-btn primary" id="toggle" type="button">Start</button>
+      <button class="control-btn" id="skip" type="button" title="Skip">»</button>
+    </div>
+  </main>
+  <script>
+    const SETTINGS_KEY = 'webzen-pomodoro:settings'
+    const STATE_KEY = 'webzen-pomodoro:state'
+
+    const DEFAULT_SETTINGS = {
+      focusMinutes: 25,
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+      sessionsBeforeLong: 4,
+      autoStartNext: false,
+      soundEnabled: true
+    }
+
+    const MODES = {
+      focus: {
+        label: 'Focus',
+        doneLabel: 'Focus done',
+        accent: '#f26a5f',
+        accentSoft: '#ffb7ad',
+        durationKey: 'focusMinutes'
+      },
+      shortBreak: {
+        label: 'Short break',
+        doneLabel: 'Break done',
+        accent: '#63d49b',
+        accentSoft: '#a8efc6',
+        durationKey: 'shortBreakMinutes'
+      },
+      longBreak: {
+        label: 'Long break',
+        doneLabel: 'Break done',
+        accent: '#64b6ff',
+        accentSoft: '#b7dbff',
+        durationKey: 'longBreakMinutes'
+      }
+    }
+
+    const timer = document.getElementById('timer')
+    const ring = document.getElementById('ring')
+    const timeEl = document.getElementById('time')
+    const statusEl = document.getElementById('status')
+    const sessionLabel = document.getElementById('session-label')
+    const dotsEl = document.getElementById('dots')
+    const toggleBtn = document.getElementById('toggle')
+    const resetBtn = document.getElementById('reset')
+    const skipBtn = document.getElementById('skip')
+    const modeButtons = Array.from(document.querySelectorAll('.mode-tab'))
+
+    let settingsSignature = ''
+    let settings = loadSettings()
+    let state = loadState()
+
+    function clampNumber(value, fallback, min, max) {
+      const number = Number(value)
+      if (!Number.isFinite(number)) return fallback
+      return Math.min(max, Math.max(min, number))
+    }
+
+    function sanitizeSettings(raw) {
+      return {
+        focusMinutes: clampNumber(raw.focusMinutes, DEFAULT_SETTINGS.focusMinutes, 1, 180),
+        shortBreakMinutes: clampNumber(raw.shortBreakMinutes, DEFAULT_SETTINGS.shortBreakMinutes, 1, 60),
+        longBreakMinutes: clampNumber(raw.longBreakMinutes, DEFAULT_SETTINGS.longBreakMinutes, 1, 90),
+        sessionsBeforeLong: Math.round(clampNumber(raw.sessionsBeforeLong, DEFAULT_SETTINGS.sessionsBeforeLong, 1, 12)),
+        autoStartNext: Boolean(raw.autoStartNext),
+        soundEnabled: raw.soundEnabled !== false
+      }
+    }
+
+    function loadSettings() {
+      try {
+        return sanitizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) })
+      } catch (_e) {
+        return { ...DEFAULT_SETTINGS }
+      }
+    }
+
+    function loadState() {
+      let saved = {}
+      try {
+        saved = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
+      } catch (_e) {
+        saved = {}
+      }
+
+      const mode = MODES[saved.mode] ? saved.mode : 'focus'
+      const remaining = clampNumber(saved.remaining, secondsForMode(mode), 0, secondsForMode(mode))
+      return {
+        mode,
+        running: Boolean(saved.running && Number.isFinite(saved.endAt)),
+        endAt: Number.isFinite(saved.endAt) ? saved.endAt : null,
+        remaining,
+        completedFocus: Math.round(clampNumber(saved.completedFocus, 0, 0, 999))
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STATE_KEY, JSON.stringify(state))
+    }
+
+    function secondsForMode(mode) {
+      return Math.round(settings[MODES[mode].durationKey] * 60)
+    }
+
+    function getRemaining() {
+      if (state.running && Number.isFinite(state.endAt)) {
+        return Math.max(0, Math.ceil((state.endAt - Date.now()) / 1000))
+      }
+      return state.remaining
+    }
+
+    function formatTime(totalSeconds) {
+      const minutes = Math.floor(totalSeconds / 60)
+      const seconds = totalSeconds % 60
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    }
+
+    function currentCyclePosition() {
+      return state.completedFocus % settings.sessionsBeforeLong
+    }
+
+    function visibleCyclePosition() {
+      const position = currentCyclePosition()
+      if (state.mode !== 'focus' && position === 0 && state.completedFocus > 0) {
+        return settings.sessionsBeforeLong
+      }
+      return position
+    }
+
+    function playChime() {
+      if (!settings.soundEnabled) return
+
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return
+
+      const context = new AudioContext()
+      const gain = context.createGain()
+      gain.gain.setValueAtTime(0.0001, context.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.55)
+      gain.connect(context.destination)
+
+      ;[0, 0.16].forEach((offset) => {
+        const oscillator = context.createOscillator()
+        oscillator.type = 'sine'
+        oscillator.frequency.setValueAtTime(660 + offset * 900, context.currentTime + offset)
+        oscillator.connect(gain)
+        oscillator.start(context.currentTime + offset)
+        oscillator.stop(context.currentTime + offset + 0.22)
+      })
+
+      setTimeout(() => context.close(), 800)
+    }
+
+    function startTimer() {
+      if (state.running) return
+      state.remaining = getRemaining() || secondsForMode(state.mode)
+      state.running = true
+      state.endAt = Date.now() + state.remaining * 1000
+      saveState()
+      render()
+    }
+
+    function pauseTimer() {
+      if (!state.running) return
+      state.remaining = getRemaining()
+      state.running = false
+      state.endAt = null
+      saveState()
+      render()
+    }
+
+    function resetTimer() {
+      state.running = false
+      state.endAt = null
+      state.remaining = secondsForMode(state.mode)
+      saveState()
+      render()
+    }
+
+    function switchMode(mode) {
+      if (!MODES[mode]) return
+      state.mode = mode
+      state.running = false
+      state.endAt = null
+      state.remaining = secondsForMode(mode)
+      saveState()
+      render()
+    }
+
+    function advanceMode(playSound = true) {
+      const finishedMode = state.mode
+      if (finishedMode === 'focus') {
+        state.completedFocus += 1
+      }
+
+      const nextMode = finishedMode === 'focus'
+        ? (currentCyclePosition() === 0 ? 'longBreak' : 'shortBreak')
+        : 'focus'
+
+      if (playSound) playChime()
+      state.mode = nextMode
+      state.remaining = secondsForMode(nextMode)
+      state.running = false
+      state.endAt = null
+
+      if (settings.autoStartNext) {
+        state.running = true
+        state.endAt = Date.now() + state.remaining * 1000
+      }
+
+      saveState()
+      render(MODES[finishedMode].doneLabel)
+    }
+
+    function syncSettings() {
+      const nextSettings = loadSettings()
+      const nextSignature = JSON.stringify(nextSettings)
+      if (nextSignature === settingsSignature) return
+
+      const wasInitialized = settingsSignature !== ''
+      settings = nextSettings
+      settingsSignature = nextSignature
+
+      if (wasInitialized && !state.running) {
+        state.remaining = Math.min(state.remaining, secondsForMode(state.mode))
+        if (state.remaining === 0) state.remaining = secondsForMode(state.mode)
+        saveState()
+      }
+    }
+
+    function render(message) {
+      syncSettings()
+
+      const mode = MODES[state.mode]
+      const remaining = getRemaining()
+      const total = Math.max(1, secondsForMode(state.mode))
+      const progress = Math.min(1, Math.max(0, (total - remaining) / total))
+
+      timer.style.setProperty('--accent', mode.accent)
+      timer.style.setProperty('--accent-soft', mode.accentSoft)
+      ring.style.setProperty('--progress', `${progress * 100}%`)
+
+      timeEl.textContent = formatTime(remaining)
+      statusEl.textContent = message || (state.running ? mode.label : 'Ready')
+      toggleBtn.textContent = state.running ? 'Pause' : (remaining < total ? 'Resume' : 'Start')
+      const cyclePosition = visibleCyclePosition()
+      sessionLabel.textContent = `${cyclePosition} / ${settings.sessionsBeforeLong}`
+
+      dotsEl.innerHTML = ''
+      for (let index = 0; index < settings.sessionsBeforeLong; index += 1) {
+        const dot = document.createElement('span')
+        dot.className = 'dot' + (index < cyclePosition ? ' done' : '')
+        dotsEl.append(dot)
+      }
+
+      modeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === state.mode)
+      })
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      if (state.running) {
+        pauseTimer()
+      } else {
+        startTimer()
+      }
+    })
+
+    resetBtn.addEventListener('click', resetTimer)
+    skipBtn.addEventListener('click', () => advanceMode(false))
+
+    modeButtons.forEach((button) => {
+      button.addEventListener('click', () => switchMode(button.dataset.mode))
+    })
+
+    setInterval(() => {
+      syncSettings()
+      if (state.running) {
+        const remaining = getRemaining()
+        if (remaining <= 0) {
+          advanceMode()
+          return
+        }
+        state.remaining = remaining
+        saveState()
+      }
+      render()
+    }, 500)
+
+    render()
+  </script>
+</body>
+</html>
