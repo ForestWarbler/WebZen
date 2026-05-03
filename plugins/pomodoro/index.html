@@ -256,6 +256,7 @@
     let settingsSignature = ''
     let settings = loadSettings()
     let state = loadState()
+    let audioContext = null
 
     function clampNumber(value, fallback, min, max) {
       const number = Number(value)
@@ -334,29 +335,62 @@
       return position
     }
 
+    function getAudioContext() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return null
+
+      if (!audioContext || audioContext.state === 'closed') {
+        audioContext = new AudioContext()
+      }
+
+      return audioContext
+    }
+
+    function unlockAudio() {
+      if (!settings.soundEnabled) return
+
+      const context = getAudioContext()
+      if (!context) return
+
+      if (context.state === 'suspended') {
+        context.resume().catch(() => {})
+      }
+    }
+
+    function scheduleChime(context) {
+      const startAt = context.currentTime + 0.03
+      const gain = context.createGain()
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(0.11, startAt + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.75)
+      gain.connect(context.destination)
+
+      ;[
+        { offset: 0, frequency: 659.25 },
+        { offset: 0.18, frequency: 880 },
+        { offset: 0.36, frequency: 1174.66 }
+      ].forEach(({ offset, frequency }) => {
+        const oscillator = context.createOscillator()
+        oscillator.type = 'sine'
+        oscillator.frequency.setValueAtTime(frequency, startAt + offset)
+        oscillator.connect(gain)
+        oscillator.start(startAt + offset)
+        oscillator.stop(startAt + offset + 0.24)
+      })
+    }
+
     function playChime() {
       if (!settings.soundEnabled) return
 
-      const AudioContext = window.AudioContext || window.webkitAudioContext
-      if (!AudioContext) return
+      const context = getAudioContext()
+      if (!context) return
 
-      const context = new AudioContext()
-      const gain = context.createGain()
-      gain.gain.setValueAtTime(0.0001, context.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.55)
-      gain.connect(context.destination)
+      if (context.state === 'suspended') {
+        context.resume().then(() => scheduleChime(context)).catch(() => {})
+        return
+      }
 
-      ;[0, 0.16].forEach((offset) => {
-        const oscillator = context.createOscillator()
-        oscillator.type = 'sine'
-        oscillator.frequency.setValueAtTime(660 + offset * 900, context.currentTime + offset)
-        oscillator.connect(gain)
-        oscillator.start(context.currentTime + offset)
-        oscillator.stop(context.currentTime + offset + 0.22)
-      })
-
-      setTimeout(() => context.close(), 800)
+      scheduleChime(context)
     }
 
     function startTimer() {
@@ -467,6 +501,7 @@
     }
 
     toggleBtn.addEventListener('click', () => {
+      unlockAudio()
       if (state.running) {
         pauseTimer()
       } else {
@@ -474,11 +509,20 @@
       }
     })
 
-    resetBtn.addEventListener('click', resetTimer)
-    skipBtn.addEventListener('click', () => advanceMode(false))
+    resetBtn.addEventListener('click', () => {
+      unlockAudio()
+      resetTimer()
+    })
+    skipBtn.addEventListener('click', () => {
+      unlockAudio()
+      advanceMode(false)
+    })
 
     modeButtons.forEach((button) => {
-      button.addEventListener('click', () => switchMode(button.dataset.mode))
+      button.addEventListener('click', () => {
+        unlockAudio()
+        switchMode(button.dataset.mode)
+      })
     })
 
     setInterval(() => {
