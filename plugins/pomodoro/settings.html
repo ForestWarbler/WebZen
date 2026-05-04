@@ -44,22 +44,6 @@
       font-size: 12px;
       color: rgba(255, 255, 255, 0.42);
     }
-    .setting-input {
-      width: 76px;
-      flex-shrink: 0;
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.9);
-      font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      text-align: right;
-      outline: none;
-    }
-    .setting-input:focus {
-      border-color: rgba(242, 106, 95, 0.65);
-      box-shadow: 0 0 0 3px rgba(242, 106, 95, 0.15);
-    }
     .toggle {
       position: relative;
       width: 44px;
@@ -96,66 +80,14 @@
     .toggle input:checked + .toggle-track::after {
       transform: translateX(18px);
     }
-    .restore {
-      margin-top: 12px;
-      width: 100%;
-      height: 36px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.07);
-      color: rgba(255, 255, 255, 0.82);
-      font: 650 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      cursor: pointer;
-    }
-    .restore:hover {
-      background: rgba(255, 255, 255, 0.13);
-    }
   </style>
 </head>
 <body>
   <div class="settings-group">
     <div class="setting-row">
       <div>
-        <div class="setting-label">Focus</div>
-        <div class="setting-description">Minutes per work session</div>
-      </div>
-      <input class="setting-input" id="focusMinutes" type="number" min="1" max="180" step="1">
-    </div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Short break</div>
-        <div class="setting-description">Minutes after most focus sessions</div>
-      </div>
-      <input class="setting-input" id="shortBreakMinutes" type="number" min="1" max="60" step="1">
-    </div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Long break</div>
-        <div class="setting-description">Minutes after a full round</div>
-      </div>
-      <input class="setting-input" id="longBreakMinutes" type="number" min="1" max="90" step="1">
-    </div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Round length</div>
-        <div class="setting-description">Focus sessions before long break</div>
-      </div>
-      <input class="setting-input" id="sessionsBeforeLong" type="number" min="1" max="12" step="1">
-    </div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Auto start next</div>
-        <div class="setting-description">Continue into the next session</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="autoStartNext">
-        <span class="toggle-track"></span>
-      </label>
-    </div>
-    <div class="setting-row">
-      <div>
         <div class="setting-label">Sound</div>
-        <div class="setting-description">Play a chime when time is up</div>
+        <div class="setting-description">Play a chime when each state ends</div>
       </div>
       <label class="toggle">
         <input type="checkbox" id="soundEnabled">
@@ -163,94 +95,30 @@
       </label>
     </div>
   </div>
-  <button class="restore" id="restore" type="button">Restore defaults</button>
 
   <script>
     const SETTINGS_KEY = 'webzen-pomodoro:settings'
-    const DEFAULT_SETTINGS = {
-      focusMinutes: 25,
-      shortBreakMinutes: 5,
-      longBreakMinutes: 15,
-      sessionsBeforeLong: 4,
-      autoStartNext: false,
-      soundEnabled: true
-    }
-
-    const fields = {
-      focusMinutes: document.getElementById('focusMinutes'),
-      shortBreakMinutes: document.getElementById('shortBreakMinutes'),
-      longBreakMinutes: document.getElementById('longBreakMinutes'),
-      sessionsBeforeLong: document.getElementById('sessionsBeforeLong'),
-      autoStartNext: document.getElementById('autoStartNext'),
-      soundEnabled: document.getElementById('soundEnabled')
-    }
-
-    function clampNumber(value, fallback, min, max) {
-      const number = Number(value)
-      if (!Number.isFinite(number)) return fallback
-      return Math.min(max, Math.max(min, number))
-    }
-
-    function sanitizeSettings(raw) {
-      return {
-        focusMinutes: clampNumber(raw.focusMinutes, DEFAULT_SETTINGS.focusMinutes, 1, 180),
-        shortBreakMinutes: clampNumber(raw.shortBreakMinutes, DEFAULT_SETTINGS.shortBreakMinutes, 1, 60),
-        longBreakMinutes: clampNumber(raw.longBreakMinutes, DEFAULT_SETTINGS.longBreakMinutes, 1, 90),
-        sessionsBeforeLong: Math.round(clampNumber(raw.sessionsBeforeLong, DEFAULT_SETTINGS.sessionsBeforeLong, 1, 12)),
-        autoStartNext: Boolean(raw.autoStartNext),
-        soundEnabled: raw.soundEnabled !== false
-      }
-    }
+    const DEFAULT_SETTINGS = { soundEnabled: true }
+    const soundEnabled = document.getElementById('soundEnabled')
 
     function loadSettings() {
       try {
-        return sanitizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) })
+        const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}
+        return { ...DEFAULT_SETTINGS, soundEnabled: parsed.soundEnabled !== false }
       } catch (_e) {
         return { ...DEFAULT_SETTINGS }
       }
     }
 
     function saveSettings(settings) {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(sanitizeSettings(settings)))
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
     }
 
-    function render(settings) {
-      fields.focusMinutes.value = settings.focusMinutes
-      fields.shortBreakMinutes.value = settings.shortBreakMinutes
-      fields.longBreakMinutes.value = settings.longBreakMinutes
-      fields.sessionsBeforeLong.value = settings.sessionsBeforeLong
-      fields.autoStartNext.checked = settings.autoStartNext
-      fields.soundEnabled.checked = settings.soundEnabled
-    }
-
-    function readForm() {
-      return sanitizeSettings({
-        focusMinutes: fields.focusMinutes.value,
-        shortBreakMinutes: fields.shortBreakMinutes.value,
-        longBreakMinutes: fields.longBreakMinutes.value,
-        sessionsBeforeLong: fields.sessionsBeforeLong.value,
-        autoStartNext: fields.autoStartNext.checked,
-        soundEnabled: fields.soundEnabled.checked
-      })
-    }
-
-    function persistForm() {
-      const settings = readForm()
-      saveSettings(settings)
-      render(settings)
-    }
-
-    Object.values(fields).forEach((field) => {
-      field.addEventListener('change', persistForm)
-      field.addEventListener('blur', persistForm)
+    const settings = loadSettings()
+    soundEnabled.checked = settings.soundEnabled
+    soundEnabled.addEventListener('change', () => {
+      saveSettings({ soundEnabled: soundEnabled.checked })
     })
-
-    document.getElementById('restore').addEventListener('click', () => {
-      saveSettings(DEFAULT_SETTINGS)
-      render(DEFAULT_SETTINGS)
-    })
-
-    render(loadSettings())
   </script>
 </body>
 </html>
