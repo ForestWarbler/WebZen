@@ -337,6 +337,26 @@
         display: block;
       }
 
+      .snap-guide {
+        position: absolute;
+        display: none;
+        pointer-events: none;
+        z-index: 6;
+        background: rgba(129, 191, 255, 0.95);
+        box-shadow: 0 0 0 1px rgba(18, 27, 42, 0.35), 0 0 14px rgba(129, 191, 255, 0.55);
+      }
+      .snap-guide.visible {
+        display: block;
+      }
+      .snap-guide.vertical {
+        width: 1px;
+        transform: translateX(-0.5px);
+      }
+      .snap-guide.horizontal {
+        height: 1px;
+        transform: translateY(-0.5px);
+      }
+
       /* Plugin panel */
       #plugin-panel {
         position: fixed;
