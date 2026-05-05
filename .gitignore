@@ -3,7 +3,8 @@ node_modules/
 dist/
 build/
 out/
-assets/
+assets/*
+!assets/default-webzen-wallpaper.svg
 
 *.log
 npm-debug.log*

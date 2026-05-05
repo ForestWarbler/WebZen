@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160" role="img" aria-label="WebZen default wallpaper">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b5148"/>
+      <stop offset="0.42" stop-color="#403b37"/>
+      <stop offset="1" stop-color="#282828"/>
+    </linearGradient>
+
+    <radialGradient id="glow" cx="50%" cy="42%" r="68%">
+      <stop offset="0" stop-color="#d9c79b" stop-opacity="0.18"/>
+      <stop offset="0.45" stop-color="#a89068" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <pattern id="wordmark" width="1180" height="500" patternUnits="userSpaceOnUse" patternTransform="rotate(-13)">
+      <text
+        x="36"
+        y="156"
+        font-family="Cormorant Garamond, Didot, Bodoni 72, Georgia, serif"
+        font-size="148"
+        font-style="italic"
+        font-weight="500"
+        letter-spacing="10"
+        fill="#ead9ad"
+        fill-opacity="0.22">WebZen</text>
+      <text
+        x="864"
+        y="118"
+        font-family="Cormorant Garamond, Didot, Bodoni 72, Georgia, serif"
+        font-size="62"
+        font-style="italic"
+        font-weight="500"
+        letter-spacing="10"
+        fill="#ead9ad"
+        fill-opacity="0.18">WebZen</text>
+      <text
+        x="640"
+        y="412"
+        font-family="Cormorant Garamond, Didot, Bodoni 72, Georgia, serif"
+        font-size="96"
+        font-style="italic"
+        font-weight="500"
+        letter-spacing="10"
+        fill="#ead9ad"
+        fill-opacity="0.16">WebZen</text>
+    </pattern>
+  </defs>
+
+  <rect width="3840" height="2160" fill="url(#base)"/>
+  <rect width="3840" height="2160" fill="url(#wordmark)"/>
+  <rect width="3840" height="2160" fill="url(#glow)"/>
+
+  <rect width="3840" height="2160" fill="#000000" opacity="0.16"/>
+</svg>

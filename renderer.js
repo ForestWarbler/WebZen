@@ -27,8 +27,10 @@ const backstageContent = document.getElementById('backstage-content')
 const btnBackstageBack = document.getElementById('btn-backstage-back')
 
 // --- App state ---
-let activeBackgroundType = 'video'
-let selectedAssetPath = backgroundVideo.currentSrc || backgroundVideo.getAttribute('src')
+const DEFAULT_BACKGROUND_PATH = 'assets/default-webzen-wallpaper.svg'
+
+let activeBackgroundType = 'image'
+let selectedAssetPath = backgroundImage.currentSrc || backgroundImage.getAttribute('src') || DEFAULT_BACKGROUND_PATH
 let isDraggingBackground = false
 let startX = 0
 let startY = 0
