@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "postinstall": "node scripts/setup-terminal-vendor.js && node scripts/rebuild-terminal.js",
-    "dist:mac": "electron-builder --mac dmg --x64 --publish never",
+    "dist:mac": "electron-builder --mac dmg --arm64 --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "dist:linux": "electron-builder --linux AppImage --x64 --publish never",
     "test": "node --check index.js && node --check preload.js && node --check renderer.js"
