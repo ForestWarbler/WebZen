@@ -106,16 +106,12 @@ async function readManifest(pluginDir) {
 async function scanPluginsDir(dirPath) {
     const results = []
 
-    try {
-        await fs.mkdir(dirPath, { recursive: true })
-    } catch (_error) {
-        return results
-    }
-
     let entries
     try {
         entries = await fs.readdir(dirPath, { withFileTypes: true })
     } catch (_error) {
+        // Directory does not exist or is unreadable (e.g. user dir on first launch).
+        // Bundled dir lives inside app.asar and must never be mkdir'd.
         return results
     }
 
@@ -135,7 +131,17 @@ async function scanPluginsDir(dirPath) {
     return results
 }
 
+async function ensureUserPluginsDir() {
+    try {
+        await fs.mkdir(getUserPluginsDir(), { recursive: true })
+    } catch (_error) {
+        // best-effort; scanPluginsDir handles a missing dir
+    }
+}
+
 async function discoverAllPlugins() {
+    await ensureUserPluginsDir()
+
     const [bundled, user] = await Promise.all([
         scanPluginsDir(BUNDLED_PLUGINS_DIR),
         scanPluginsDir(getUserPluginsDir())
