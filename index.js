@@ -11,8 +11,6 @@ try {
 }
 
 const terminalSessions = new Map()
-const browserSessions = new Map()
-let mainWindow = null
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif'])
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogg'])
@@ -201,15 +199,6 @@ async function createWindow() {
     }
 
     const win = new BrowserWindow(windowOptions)
-    mainWindow = win
-
-    win.on('closed', () => {
-        mainWindow = null
-        for (const [, session] of browserSessions) {
-            if (!session.window.isDestroyed()) session.window.close()
-        }
-        browserSessions.clear()
-    })
 
     let saveTimer = null
     function scheduleBoundsWrite() {
@@ -226,27 +215,9 @@ async function createWindow() {
         }, 300)
     }
 
-    const syncBrowserWindowPositions = () => {
-        if (!mainWindow || mainWindow.isDestroyed()) return
-        const contentBounds = mainWindow.getContentBounds()
-        for (const [, session] of browserSessions) {
-            if (session.window.isDestroyed()) continue
-            const vb = session.viewportBounds
-            session.window.setBounds({
-                x: contentBounds.x + Math.round(vb.x),
-                y: contentBounds.y + Math.round(vb.y),
-                width: Math.round(vb.width),
-                height: Math.round(vb.height)
-            })
-        }
-    }
-
     win.loadFile('index.html')
     win.on('resize', scheduleBoundsWrite)
-    win.on('move', () => {
-        scheduleBoundsWrite()
-        syncBrowserWindowPositions()
-    })
+    win.on('move', scheduleBoundsWrite)
     win.on('enter-full-screen', async () => {
         sendFullscreenState(win)
         await writeWindowState({ fullscreen: true })
@@ -443,76 +414,6 @@ app.whenReady().then(async () => {
         }
     })
 
-    // --- Browser window IPC ---
-    ipcMain.handle('create-browser-window', (_event, sessionId, bounds) => {
-        if (!mainWindow || mainWindow.isDestroyed()) return
-
-        const existing = browserSessions.get(sessionId)
-        if (existing && !existing.window.isDestroyed()) return
-
-        const pluginDir = pluginDirectoryMap.get('browser')
-        if (!pluginDir) return
-
-        const contentBounds = mainWindow.getContentBounds()
-        const browserWin = new BrowserWindow({
-            x: contentBounds.x + Math.round(bounds.x),
-            y: contentBounds.y + Math.round(bounds.y),
-            width: Math.round(bounds.width),
-            height: Math.round(bounds.height),
-            frame: false,
-            parent: mainWindow,
-            skipTaskbar: true,
-            resizable: false,
-            movable: false,
-            minimizable: false,
-            maximizable: false,
-            fullscreenable: false,
-            webPreferences: {
-                webviewTag: true
-            }
-        })
-
-        browserWin.loadFile(path.join(pluginDir, 'browser.html'))
-        browserSessions.set(sessionId, { window: browserWin, viewportBounds: bounds })
-
-        browserWin.on('closed', () => {
-            browserSessions.delete(sessionId)
-        })
-    })
-
-    ipcMain.handle('update-browser-bounds', (_event, sessionId, bounds) => {
-        if (!mainWindow || mainWindow.isDestroyed()) return
-        const session = browserSessions.get(sessionId)
-        if (!session || session.window.isDestroyed()) return
-
-        session.viewportBounds = bounds
-        const contentBounds = mainWindow.getContentBounds()
-        session.window.setBounds({
-            x: contentBounds.x + Math.round(bounds.x),
-            y: contentBounds.y + Math.round(bounds.y),
-            width: Math.round(bounds.width),
-            height: Math.round(bounds.height)
-        })
-    })
-
-    ipcMain.handle('close-browser-window', (_event, sessionId) => {
-        const session = browserSessions.get(sessionId)
-        if (session && !session.window.isDestroyed()) {
-            session.window.close()
-        }
-        browserSessions.delete(sessionId)
-    })
-
-    ipcMain.handle('set-browser-windows-visible', (_event, visible) => {
-        for (const [, session] of browserSessions) {
-            if (session.window.isDestroyed()) continue
-            if (visible) {
-                session.window.showInactive()
-            } else {
-                session.window.hide()
-            }
-        }
-    })
 })
 
 app.on('window-all-closed', () => {

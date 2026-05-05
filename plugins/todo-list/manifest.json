@@ -1,0 +1,19 @@
+{
+    "id": "todo-list",
+    "name": "Todo List",
+    "version": "1.0.0",
+    "description": "A reminder-style todo list with notes, due dates, and adjustable font size.",
+    "entry": "index.html",
+    "icon": "✓",
+    "defaultWidth": 360,
+    "defaultHeight": 460,
+    "minWidth": 280,
+    "minHeight": 300,
+    "window": {
+        "transparent": false,
+        "background": "rgba(22, 24, 26, 0.86)",
+        "borderColor": "rgba(255, 255, 255, 0.1)",
+        "backdropFilter": "blur(22px)",
+        "borderRadius": 16
+    }
+}

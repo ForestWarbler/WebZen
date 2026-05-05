@@ -332,6 +332,7 @@ const DEFAULT_MIN_WIDTH = 220
 const DEFAULT_MIN_HEIGHT = 160
 const PLUGIN_MARGIN = 16
 const PLUGIN_TOP_MARGIN = 56
+const PLUGIN_SNAP_DISTANCE = 10
 
 const btnOpenPluginsFolder = document.getElementById('btn-open-plugins-folder')
 
@@ -440,6 +441,163 @@ const setElementFrame = (element, px, py, w, h) => {
     element.style.top = `${py}px`
     element.style.width = `${w}px`
     element.style.height = `${h}px`
+}
+
+const snapGuides = {
+    vertical: null,
+    horizontal: null
+}
+
+const ensureSnapGuides = () => {
+    if (!snapGuides.vertical) {
+        snapGuides.vertical = document.createElement('div')
+        snapGuides.vertical.className = 'snap-guide vertical'
+        widgetLayer.append(snapGuides.vertical)
+    }
+
+    if (!snapGuides.horizontal) {
+        snapGuides.horizontal = document.createElement('div')
+        snapGuides.horizontal.className = 'snap-guide horizontal'
+        widgetLayer.append(snapGuides.horizontal)
+    }
+}
+
+const hideSnapGuides = () => {
+    snapGuides.vertical?.classList.remove('visible')
+    snapGuides.horizontal?.classList.remove('visible')
+}
+
+const updateSnapGuides = ({ x = null, y = null } = {}) => {
+    ensureSnapGuides()
+
+    const bounds = getPluginBounds()
+
+    if (Number.isFinite(x)) {
+        snapGuides.vertical.style.left = `${x}px`
+        snapGuides.vertical.style.top = `${bounds.minY}px`
+        snapGuides.vertical.style.height = `${bounds.maxY - bounds.minY}px`
+        snapGuides.vertical.classList.add('visible')
+    } else {
+        snapGuides.vertical.classList.remove('visible')
+    }
+
+    if (Number.isFinite(y)) {
+        snapGuides.horizontal.style.top = `${y}px`
+        snapGuides.horizontal.style.left = `${bounds.minX}px`
+        snapGuides.horizontal.style.width = `${bounds.maxX - bounds.minX}px`
+        snapGuides.horizontal.classList.add('visible')
+    } else {
+        snapGuides.horizontal.classList.remove('visible')
+    }
+}
+
+const getPluginSnapTargets = (activePluginId) => {
+    const bounds = getPluginBounds()
+    const xTargets = [
+        bounds.minX,
+        bounds.maxX,
+        (bounds.minX + bounds.maxX) / 2
+    ]
+    const yTargets = [
+        bounds.minY,
+        bounds.maxY,
+        (bounds.minY + bounds.maxY) / 2
+    ]
+
+    plugins.forEach((plugin) => {
+        if (plugin.id === activePluginId || !pluginElements.has(plugin.id)) return
+
+        const { px, py, w, h } = pluginToPixels(plugin)
+        xTargets.push(px, px + w, px + w / 2)
+        yTargets.push(py, py + h, py + h / 2)
+    })
+
+    return { xTargets, yTargets }
+}
+
+const findClosestSnap = (candidates, targets) => {
+    let closest = null
+
+    candidates.forEach((candidate) => {
+        targets.forEach((target) => {
+            const delta = target - candidate
+            const distance = Math.abs(delta)
+            if (distance > PLUGIN_SNAP_DISTANCE) return
+            if (closest && distance >= closest.distance) return
+
+            closest = { delta, target, distance }
+        })
+    })
+
+    return closest
+}
+
+const snapPluginMove = (frame, snapTargets, bounds) => {
+    const hasAlignedCandidate = (candidates, target) =>
+        Number.isFinite(target) && candidates.some((candidate) => Math.abs(candidate - target) < 1)
+
+    const xSnap = findClosestSnap(
+        [frame.px, frame.px + frame.w, frame.px + frame.w / 2],
+        snapTargets.xTargets
+    )
+    const ySnap = findClosestSnap(
+        [frame.py, frame.py + frame.h, frame.py + frame.h / 2],
+        snapTargets.yTargets
+    )
+
+    if (xSnap) {
+        frame.px = clamp(frame.px + xSnap.delta, bounds.minX, bounds.maxX - frame.w)
+    }
+
+    if (ySnap) {
+        frame.py = clamp(frame.py + ySnap.delta, bounds.minY, bounds.maxY - frame.h)
+    }
+
+    const xCandidates = [frame.px, frame.px + frame.w, frame.px + frame.w / 2]
+    const yCandidates = [frame.py, frame.py + frame.h, frame.py + frame.h / 2]
+
+    return {
+        ...frame,
+        guideX: hasAlignedCandidate(xCandidates, xSnap?.target) ? xSnap.target : null,
+        guideY: hasAlignedCandidate(yCandidates, ySnap?.target) ? ySnap.target : null
+    }
+}
+
+const findResizableSnap = (edge, targets, minEdge, maxEdge) => {
+    let closest = null
+
+    targets.forEach((target) => {
+        if (target < minEdge || target > maxEdge) return
+
+        const distance = Math.abs(target - edge)
+        if (distance > PLUGIN_SNAP_DISTANCE) return
+        if (closest && distance >= closest.distance) return
+
+        closest = { target, distance }
+    })
+
+    return closest
+}
+
+const snapPluginResize = (frame, snapTargets, bounds, minW, minH) => {
+    const right = frame.px + frame.w
+    const bottom = frame.py + frame.h
+    const xSnap = findResizableSnap(right, snapTargets.xTargets, frame.px + minW, bounds.maxX)
+    const ySnap = findResizableSnap(bottom, snapTargets.yTargets, frame.py + minH, bounds.maxY)
+
+    if (xSnap) {
+        frame.w = xSnap.target - frame.px
+    }
+
+    if (ySnap) {
+        frame.h = ySnap.target - frame.py
+    }
+
+    return {
+        ...frame,
+        guideX: xSnap?.target ?? null,
+        guideY: ySnap?.target ?? null
+    }
 }
 
 const applyWindowStyles = (element, catalogEntry) => {
@@ -729,9 +887,6 @@ const renderPlugins = () => {
 
     updateManageModeListeners()
 
-    if (!manageMode) {
-        syncBrowserWindows()
-    }
 }
 
 const updateManageModeListeners = () => {
@@ -791,7 +946,8 @@ const startPluginInteraction = (mode, pluginId, element, event) => {
         currentPx: px,
         currentPy: py,
         currentW: plugin.width,
-        currentH: plugin.height
+        currentH: plugin.height,
+        snapTargets: getPluginSnapTargets(pluginId)
     }
 
     element.classList.add('is-interacting')
@@ -808,18 +964,30 @@ const updatePluginInteraction = (event) => {
     const deltaX = event.clientX - pluginInteraction.startMouseX
     const deltaY = event.clientY - pluginInteraction.startMouseY
 
-    let px, py, w, h
+    let px, py, w, h, guideX = null, guideY = null
 
     if (pluginInteraction.mode === 'move') {
         w = pluginInteraction.startWidth
         h = pluginInteraction.startHeight
         px = clamp(pluginInteraction.startLeft + deltaX, bounds.minX, bounds.maxX - w)
         py = clamp(pluginInteraction.startTop + deltaY, bounds.minY, bounds.maxY - h)
+
+        const snapped = snapPluginMove({ px, py, w, h }, pluginInteraction.snapTargets, bounds)
+        px = snapped.px
+        py = snapped.py
+        guideX = snapped.guideX
+        guideY = snapped.guideY
     } else {
         px = pluginInteraction.startLeft
         py = pluginInteraction.startTop
         w = clamp(pluginInteraction.startWidth + deltaX, minW, bounds.maxX - px)
         h = clamp(pluginInteraction.startHeight + deltaY, minH, bounds.maxY - py)
+
+        const snapped = snapPluginResize({ px, py, w, h }, pluginInteraction.snapTargets, bounds, minW, minH)
+        w = snapped.w
+        h = snapped.h
+        guideX = snapped.guideX
+        guideY = snapped.guideY
     }
 
     pluginInteraction.currentPx = px
@@ -828,6 +996,7 @@ const updatePluginInteraction = (event) => {
     pluginInteraction.currentH = h
 
     setElementFrame(pluginInteraction.element, px, py, w, h)
+    updateSnapGuides({ x: guideX, y: guideY })
 }
 
 const finishPluginInteraction = () => {
@@ -842,6 +1011,7 @@ const finishPluginInteraction = () => {
     }
 
     pluginInteraction = null
+    hideSnapGuides()
     savePlugins()
     renderPlugins()
 }
@@ -849,6 +1019,7 @@ const finishPluginInteraction = () => {
 const cancelPluginInteraction = () => {
     if (!pluginInteraction) return
     pluginInteraction = null
+    hideSnapGuides()
     renderPlugins()
 }
 
@@ -858,12 +1029,9 @@ const setManageMode = (isEnabled) => {
     btnEditWidgets.classList.toggle('active', manageMode)
     btnAddPlugin.disabled = !manageMode
 
-    window.electronAPI?.setBrowserWindowsVisible?.(!manageMode)
-
     if (!manageMode) {
         setPluginPanelOpen(false)
         cancelPluginInteraction()
-        syncBrowserWindows()
     } else {
         renderPlugins()
     }
@@ -877,35 +1045,6 @@ const normalizeAllPlugins = () => {
     renderPlugins()
 }
 
-// --- Browser window sync ---
-const browserWindowSessions = new Set()
-
-const syncBrowserWindows = () => {
-    const activeBrowserIds = new Set()
-
-    plugins.forEach((plugin) => {
-        if (plugin.type !== 'browser') return
-        activeBrowserIds.add(plugin.id)
-
-        const { px, py, w, h } = pluginToPixels(plugin)
-        const bounds = { x: Math.round(px), y: Math.round(py), width: Math.round(w), height: Math.round(h) }
-
-        if (!browserWindowSessions.has(plugin.id)) {
-            window.electronAPI?.createBrowserWindow?.(plugin.id, bounds)
-            browserWindowSessions.add(plugin.id)
-        } else {
-            window.electronAPI?.updateBrowserBounds?.(plugin.id, bounds)
-        }
-    })
-
-    for (const id of browserWindowSessions) {
-        if (!activeBrowserIds.has(id)) {
-            window.electronAPI?.closeBrowserWindow?.(id)
-            browserWindowSessions.delete(id)
-        }
-    }
-}
-
 const loadPluginCatalog = async () => {
     if (!window.electronAPI?.listPlugins) return
 
@@ -914,6 +1053,14 @@ const loadPluginCatalog = async () => {
     } catch (error) {
         console.error('Failed to load plugin catalog.', error)
         pluginCatalog = []
+    }
+
+    if (!pluginCatalog.some((entry) => entry.id === 'browser')) {
+        const nextPlugins = plugins.filter((plugin) => plugin.type !== 'browser')
+        if (nextPlugins.length !== plugins.length) {
+            plugins = nextPlugins
+            savePlugins()
+        }
     }
 
     renderPluginCatalog()

@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+    }
+    .todo-app {
+      --todo-font-size: 14px;
+      --accent: #4fb3ff;
+      width: 100%;
+      height: 100%;
+      min-width: 280px;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+    .title-block {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 720;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1.2;
+    }
+    .count {
+      font-size: 11px;
+      font-weight: 560;
+      color: rgba(255, 255, 255, 0.46);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .font-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.82);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: 720 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.13);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+    .icon-btn:active {
+      transform: translateY(1px);
+    }
+    .font-size {
+      min-width: 34px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 11px;
+      font-weight: 620;
+      font-variant-numeric: tabular-nums;
+    }
+    .add-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 118px 34px;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
+      align-items: start;
+      max-height: 160px;
+      opacity: 1;
+      overflow: hidden;
+      transform: translateY(0);
+      transition:
+        max-height 0.24s ease,
+        opacity 0.18s ease,
+        padding 0.24s ease,
+        transform 0.24s ease,
+        border-color 0.24s ease;
+    }
+    .add-form.hidden {
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-bottom-color: transparent;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-12px);
+    }
+    .add-fields {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .input,
+    .date-input,
+    .item-note {
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.9);
+      outline: none;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .input,
+    .date-input {
+      height: 34px;
+      padding: 0 10px;
+      font: 570 var(--todo-font-size)/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .add-note {
+      height: 30px;
+      font-size: calc(var(--todo-font-size) - 2px);
+      font-weight: 500;
+    }
+    .date-input {
+      color-scheme: dark;
+      font-size: 12px;
+      font-weight: 560;
+    }
+    .input::placeholder,
+    .item-note::placeholder {
+      color: rgba(255, 255, 255, 0.32);
+    }
+    .input:focus,
+    .date-input:focus,
+    .item-note:focus {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(79, 179, 255, 0.7);
+      box-shadow: 0 0 0 3px rgba(79, 179, 255, 0.14);
+    }
+    .add-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(79, 179, 255, 0.52);
+      border-radius: 8px;
+      background: rgba(79, 179, 255, 0.22);
+      color: rgba(235, 248, 255, 0.96);
+      font-size: 22px;
+      font-weight: 420;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .add-btn:hover {
+      background: rgba(79, 179, 255, 0.32);
+    }
+    .todo-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px 8px 10px;
+    }
+    .todo-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .todo-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .todo-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+    }
+    .empty {
+      height: 100%;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.34);
+      font-size: var(--todo-font-size);
+      font-weight: 560;
+    }
+    .todo-item {
+      display: grid;
+      grid-template-columns: 18px 26px minmax(0, 1fr) 28px;
+      gap: 7px;
+      padding: 10px 8px 10px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      will-change: transform;
+      transition:
+        background 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease,
+        transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .todo-item:last-child {
+      border-bottom: none;
+    }
+    .todo-item.is-dragging {
+      opacity: 0.45;
+    }
+    .todo-item.drop-before {
+      box-shadow: inset 0 2px 0 var(--accent);
+      background: rgba(79, 179, 255, 0.06);
+    }
+    .todo-item.drop-after {
+      box-shadow: inset 0 -2px 0 var(--accent);
+      background: rgba(79, 179, 255, 0.06);
+    }
+    .drag-handle {
+      width: 18px;
+      height: 24px;
+      margin-top: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.24);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: 760 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: grab;
+      user-select: none;
+    }
+    .drag-handle:hover {
+      color: rgba(255, 255, 255, 0.58);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+    .check {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      border: 1.5px solid rgba(255, 255, 255, 0.32);
+      border-radius: 50%;
+      background: transparent;
+      color: rgba(12, 17, 20, 0.95);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .todo-item.completed .check {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .check svg {
+      width: 13px;
+      height: 13px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .todo-item.completed .check svg {
+      opacity: 1;
+    }
+    .todo-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .todo-title-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 118px;
+      gap: 8px;
+      align-items: start;
+    }
+    .todo-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .todo-title {
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.91);
+      outline: none;
+      font: 620 var(--todo-font-size)/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-overflow: ellipsis;
+    }
+    .item-note {
+      width: 100%;
+      min-height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.5);
+      font: 500 calc(var(--todo-font-size) - 2px)/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .todo-title:focus {
+      color: rgba(255, 255, 255, 1);
+    }
+    .item-note:focus {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      color: rgba(255, 255, 255, 0.72);
+    }
+    .todo-item.completed .todo-title {
+      color: rgba(255, 255, 255, 0.42);
+      text-decoration: line-through;
+    }
+    .todo-item.completed .item-note {
+      color: rgba(255, 255, 255, 0.32);
+    }
+    .item-date {
+      height: 28px;
+      padding: 0 8px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 16px;
+      flex-wrap: wrap;
+    }
+    .due-pill {
+      display: none;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: rgba(255, 255, 255, 0.56);
+      font-size: 11px;
+      font-weight: 630;
+    }
+    .due-pill.visible {
+      display: inline-block;
+    }
+    .due-pill.today {
+      color: #ffd071;
+    }
+    .due-pill.overdue {
+      color: #ff8d82;
+    }
+    .delete-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.32);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .delete-btn:hover {
+      color: rgba(255, 132, 122, 0.95);
+      background: rgba(255, 132, 122, 0.12);
+    }
+    .delete-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+    @media (max-width: 330px) {
+      .add-form,
+      .todo-title-row {
+        grid-template-columns: minmax(0, 1fr) 34px;
+      }
+      .add-form .date-input,
+      .todo-title-row .item-date {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="todo-app" id="app">
+    <header class="toolbar">
+      <div class="title-block">
+        <div class="title">Todo List</div>
+        <div class="count" id="count">0 open</div>
+      </div>
+      <div class="font-controls">
+        <button class="icon-btn" id="toggle-add" type="button" title="Hide add form">-</button>
+        <button class="icon-btn" id="font-smaller" type="button" title="Decrease font size">A-</button>
+        <span class="font-size" id="font-size-label">14px</span>
+        <button class="icon-btn" id="font-larger" type="button" title="Increase font size">A+</button>
+      </div>
+    </header>
+
+    <div class="add-form" id="add-form">
+      <div class="add-fields">
+        <input class="input" id="new-title" type="text" placeholder="New todo" autocomplete="off">
+        <input class="input add-note" id="new-note" type="text" placeholder="Note" autocomplete="off">
+      </div>
+      <input class="date-input" id="new-date" type="date" title="Due date">
+      <button class="add-btn" id="add-todo" type="button" title="Add todo">+</button>
+    </div>
+
+    <section class="todo-list" id="todo-list" aria-live="polite"></section>
+  </main>
+
+  <template id="todo-template">
+    <article class="todo-item">
+      <button class="drag-handle" type="button" draggable="true" title="Drag to reorder">=</button>
+      <button class="check" type="button" title="Mark complete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6L9 17l-5-5"></path>
+        </svg>
+      </button>
+      <div class="todo-main">
+        <div class="todo-title-row">
+          <div class="todo-text">
+            <input class="todo-title" type="text" autocomplete="off">
+            <input class="item-note" type="text" placeholder="Note" autocomplete="off">
+          </div>
+          <input class="date-input item-date" type="date" title="Due date">
+        </div>
+        <div class="meta">
+          <span class="due-pill"></span>
+        </div>
+      </div>
+      <button class="delete-btn" type="button" title="Delete todo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+    </article>
+  </template>
+
+  <script>
+    const ITEMS_KEY = 'webzen-todo-list:items'
+    const FONT_SIZE_KEY = 'webzen-todo-list:fontSize'
+    const ADD_VISIBLE_KEY = 'webzen-todo-list:addVisible'
+    const MIN_FONT_SIZE = 12
+    const MAX_FONT_SIZE = 22
+    const DEFAULT_FONT_SIZE = 14
+
+    const app = document.getElementById('app')
+    const countEl = document.getElementById('count')
+    const listEl = document.getElementById('todo-list')
+    const template = document.getElementById('todo-template')
+    const addForm = document.getElementById('add-form')
+    const newTitle = document.getElementById('new-title')
+    const newNote = document.getElementById('new-note')
+    const newDate = document.getElementById('new-date')
+    const addTodo = document.getElementById('add-todo')
+    const toggleAdd = document.getElementById('toggle-add')
+    const fontSmaller = document.getElementById('font-smaller')
+    const fontLarger = document.getElementById('font-larger')
+    const fontSizeLabel = document.getElementById('font-size-label')
+
+    let items = loadItems()
+    let fontSize = loadFontSize()
+    let addVisible = loadAddVisible()
+    let draggedId = null
+    let dropTarget = null
+
+    function uid() {
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    }
+
+    function normalizeItem(item) {
+      return {
+        id: typeof item.id === 'string' ? item.id : uid(),
+        title: typeof item.title === 'string' ? item.title : '',
+        note: typeof item.note === 'string' ? item.note : '',
+        dueDate: typeof item.dueDate === 'string' ? item.dueDate : '',
+        completed: Boolean(item.completed),
+        createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now(),
+        updatedAt: Number.isFinite(item.updatedAt) ? item.updatedAt : Date.now()
+      }
+    }
+
+    function loadItems() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(ITEMS_KEY))
+        if (!Array.isArray(parsed)) return []
+        return parsed.map(normalizeItem).filter((item) => item.title.trim() || item.note.trim() || item.dueDate)
+      } catch (_e) {
+        return []
+      }
+    }
+
+    function saveItems() {
+      localStorage.setItem(ITEMS_KEY, JSON.stringify(items))
+    }
+
+    function loadFontSize() {
+      const value = parseInt(localStorage.getItem(FONT_SIZE_KEY), 10)
+      if (!Number.isFinite(value)) return DEFAULT_FONT_SIZE
+      return Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, value))
+    }
+
+    function loadAddVisible() {
+      return localStorage.getItem(ADD_VISIBLE_KEY) !== 'false'
+    }
+
+    function applyFontSize() {
+      app.style.setProperty('--todo-font-size', `${fontSize}px`)
+      fontSizeLabel.textContent = `${fontSize}px`
+      localStorage.setItem(FONT_SIZE_KEY, String(fontSize))
+    }
+
+    function applyAddVisibility(shouldFocus = false) {
+      addForm.classList.toggle('hidden', !addVisible)
+      addForm.setAttribute('aria-hidden', String(!addVisible))
+      ;[newTitle, newNote, newDate, addTodo].forEach((field) => {
+        field.tabIndex = addVisible ? 0 : -1
+      })
+      toggleAdd.textContent = addVisible ? '-' : '+'
+      toggleAdd.title = addVisible ? 'Hide add form' : 'Show add form'
+      toggleAdd.setAttribute('aria-expanded', String(addVisible))
+      localStorage.setItem(ADD_VISIBLE_KEY, String(addVisible))
+
+      if (shouldFocus && addVisible) {
+        newTitle.focus()
+      }
+    }
+
+    function todayValue() {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    function formatDueDate(value) {
+      if (!value) return ''
+
+      const date = new Date(`${value}T00:00:00`)
+      if (Number.isNaN(date.getTime())) return ''
+
+      const today = todayValue()
+      if (value === today) return 'Today'
+
+      const formatter = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' })
+      return formatter.format(date)
+    }
+
+    function dueClass(value) {
+      if (!value) return ''
+      const today = todayValue()
+      if (value < today) return 'overdue'
+      if (value === today) return 'today'
+      return ''
+    }
+
+    function updateCount() {
+      const open = items.filter((item) => !item.completed).length
+      countEl.textContent = `${open} open`
+    }
+
+    function updateItem(id, patch) {
+      const item = items.find((candidate) => candidate.id === id)
+      if (!item) return
+
+      Object.assign(item, patch, { updatedAt: Date.now() })
+      saveItems()
+      updateCount()
+    }
+
+    function removeItem(id) {
+      items = items.filter((item) => item.id !== id)
+      saveItems()
+      render()
+    }
+
+    function clearDropIndicators() {
+      listEl.querySelectorAll('.drop-before, .drop-after').forEach((node) => {
+        node.classList.remove('drop-before', 'drop-after')
+      })
+    }
+
+    function captureItemRects() {
+      const rects = new Map()
+      listEl.querySelectorAll('.todo-item').forEach((node) => {
+        rects.set(node.dataset.id, node.getBoundingClientRect())
+      })
+      return rects
+    }
+
+    function animateItemMoves(previousRects) {
+      if (!previousRects || previousRects.size === 0) return
+
+      const nodes = Array.from(listEl.querySelectorAll('.todo-item'))
+      nodes.forEach((node) => {
+        const previous = previousRects.get(node.dataset.id)
+        if (!previous) return
+
+        const current = node.getBoundingClientRect()
+        const deltaX = previous.left - current.left
+        const deltaY = previous.top - current.top
+        if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return
+
+        node.style.transition = 'none'
+        node.style.transform = `translate(${deltaX}px, ${deltaY}px)`
+      })
+
+      listEl.getBoundingClientRect()
+      requestAnimationFrame(() => {
+        nodes.forEach((node) => {
+          if (!node.style.transform) return
+          node.style.transition = ''
+          node.style.transform = 'translate(0, 0)'
+          setTimeout(() => {
+            node.style.transform = ''
+          }, 260)
+        })
+      })
+    }
+
+    function moveItem(dragId, targetId, placeAfter) {
+      if (!dragId || !targetId || dragId === targetId) return
+
+      const previousRects = captureItemRects()
+      const fromIndex = items.findIndex((item) => item.id === dragId)
+      if (fromIndex === -1 || !items.some((item) => item.id === targetId)) return
+
+      const [moved] = items.splice(fromIndex, 1)
+      const adjustedTargetIndex = items.findIndex((item) => item.id === targetId)
+      items.splice(adjustedTargetIndex + (placeAfter ? 1 : 0), 0, moved)
+      saveItems()
+      render(previousRects)
+    }
+
+    function renderEmpty() {
+      const empty = document.createElement('div')
+      empty.className = 'empty'
+      empty.textContent = 'No todos'
+      listEl.append(empty)
+    }
+
+    function renderItem(item) {
+      const node = template.content.firstElementChild.cloneNode(true)
+      const dragHandle = node.querySelector('.drag-handle')
+      const check = node.querySelector('.check')
+      const title = node.querySelector('.todo-title')
+      const date = node.querySelector('.item-date')
+      const note = node.querySelector('.item-note')
+      const due = node.querySelector('.due-pill')
+      const deleteBtn = node.querySelector('.delete-btn')
+
+      node.dataset.id = item.id
+      node.classList.toggle('completed', item.completed)
+      title.value = item.title
+      note.value = item.note
+      date.value = item.dueDate
+
+      const dueText = formatDueDate(item.dueDate)
+      due.textContent = dueText ? `due ${dueText}` : ''
+      due.className = `due-pill ${dueText ? 'visible' : ''} ${dueClass(item.dueDate)}`.trim()
+
+      check.title = item.completed ? 'Mark incomplete' : 'Mark complete'
+      dragHandle.addEventListener('dragstart', (event) => {
+        draggedId = item.id
+        node.classList.add('is-dragging')
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', item.id)
+      })
+
+      dragHandle.addEventListener('dragend', () => {
+        draggedId = null
+        dropTarget = null
+        node.classList.remove('is-dragging')
+        clearDropIndicators()
+      })
+
+      check.addEventListener('click', () => {
+        item.completed = !item.completed
+        item.updatedAt = Date.now()
+        saveItems()
+        render()
+      })
+
+      title.addEventListener('input', () => {
+        updateItem(item.id, { title: title.value })
+      })
+
+      title.addEventListener('blur', () => {
+        if (!title.value.trim() && !note.value.trim() && !date.value) {
+          removeItem(item.id)
+        }
+      })
+
+      date.addEventListener('change', () => {
+        updateItem(item.id, { dueDate: date.value })
+        render()
+      })
+
+      note.addEventListener('input', () => {
+        updateItem(item.id, { note: note.value })
+      })
+
+      deleteBtn.addEventListener('click', () => {
+        removeItem(item.id)
+      })
+
+      listEl.append(node)
+    }
+
+    function render(previousRects = null) {
+      listEl.innerHTML = ''
+      updateCount()
+
+      if (items.length === 0) {
+        renderEmpty()
+        return
+      }
+
+      items.forEach(renderItem)
+      animateItemMoves(previousRects)
+    }
+
+    function addNewTodo() {
+      const title = newTitle.value.trim()
+      const note = newNote.value.trim()
+      const dueDate = newDate.value
+      if (!title && !note && !dueDate) return
+
+      const previousRects = captureItemRects()
+      items.unshift(normalizeItem({
+        id: uid(),
+        title: title || 'Untitled',
+        dueDate,
+        note,
+        completed: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }))
+
+      newTitle.value = ''
+      newNote.value = ''
+      newDate.value = ''
+      saveItems()
+      render(previousRects)
+      newTitle.focus()
+    }
+
+    addTodo.addEventListener('click', addNewTodo)
+
+    toggleAdd.addEventListener('click', () => {
+      addVisible = !addVisible
+      applyAddVisibility(true)
+    })
+
+    listEl.addEventListener('dragover', (event) => {
+      if (!draggedId) return
+
+      const target = event.target.closest('.todo-item')
+      if (!target || target.dataset.id === draggedId) {
+        dropTarget = null
+        clearDropIndicators()
+        return
+      }
+
+      event.preventDefault()
+      const rect = target.getBoundingClientRect()
+      const placeAfter = event.clientY > rect.top + rect.height / 2
+
+      clearDropIndicators()
+      target.classList.add(placeAfter ? 'drop-after' : 'drop-before')
+      dropTarget = { id: target.dataset.id, placeAfter }
+    })
+
+    listEl.addEventListener('drop', (event) => {
+      if (!draggedId || !dropTarget) return
+
+      event.preventDefault()
+      moveItem(draggedId, dropTarget.id, dropTarget.placeAfter)
+      draggedId = null
+      dropTarget = null
+      clearDropIndicators()
+    })
+
+    listEl.addEventListener('dragleave', (event) => {
+      if (listEl.contains(event.relatedTarget)) return
+      dropTarget = null
+      clearDropIndicators()
+    })
+
+    ;[newTitle, newNote, newDate].forEach((field) => {
+      field.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          addNewTodo()
+        }
+      })
+    })
+
+    fontSmaller.addEventListener('click', () => {
+      fontSize = Math.max(MIN_FONT_SIZE, fontSize - 1)
+      applyFontSize()
+    })
+
+    fontLarger.addEventListener('click', () => {
+      fontSize = Math.min(MAX_FONT_SIZE, fontSize + 1)
+      applyFontSize()
+    })
+
+    applyFontSize()
+    applyAddVisibility()
+    render()
+  </script>
+</body>
+</html>

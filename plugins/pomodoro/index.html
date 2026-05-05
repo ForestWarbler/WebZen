@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .timer {
+      --accent: #f26a5f;
+      --accent-soft: #ffb7ad;
+      width: 100%;
+      height: 100%;
+      min-width: 230px;
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+    }
+    .schedule-input {
+      width: 100%;
+      height: 34px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.9);
+      outline: none;
+      padding: 0 10px;
+      font: 650 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+    }
+    .schedule-input::placeholder {
+      color: rgba(255, 255, 255, 0.34);
+    }
+    .schedule-input:focus {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: color-mix(in srgb, var(--accent), white 12%);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 82%);
+    }
+    .schedule-input.invalid {
+      border-color: rgba(255, 132, 122, 0.75);
+      box-shadow: 0 0 0 3px rgba(255, 132, 122, 0.12);
+    }
+    .dial {
+      flex: 1;
+      min-height: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ring {
+      width: 142px;
+      height: 142px;
+      border-radius: 50%;
+      padding: 8px;
+      background:
+        conic-gradient(var(--accent) var(--progress), rgba(255, 255, 255, 0.09) 0),
+        rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      transition: background 0.2s ease;
+    }
+    .ring-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(16, 18, 18, 0.78);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.28);
+    }
+    .time {
+      font-size: 38px;
+      font-weight: 760;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.96);
+    }
+    .status {
+      max-width: 112px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-soft);
+    }
+    .summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 28px;
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .summary-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .step-track {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 54%;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .step-chip {
+      min-width: 28px;
+      height: 20px;
+      padding: 0 7px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.46);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .step-chip.active {
+      background: var(--accent);
+      color: rgba(14, 16, 16, 0.94);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 42px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .control-btn {
+      height: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.86);
+      font: 720 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.13);
+    }
+    .control-btn:active {
+      transform: translateY(1px);
+    }
+    .control-btn.primary {
+      background: var(--accent);
+      border-color: color-mix(in srgb, var(--accent), white 18%);
+      color: rgba(14, 16, 16, 0.94);
+    }
+    .control-btn.primary:hover {
+      background: color-mix(in srgb, var(--accent), white 10%);
+    }
+    @media (max-height: 300px) {
+      .timer {
+        gap: 8px;
+        padding: 12px;
+      }
+      .ring {
+        width: 116px;
+        height: 116px;
+      }
+      .time {
+        font-size: 32px;
+      }
+      .summary {
+        min-height: 22px;
+      }
+      .control-btn {
+        height: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="timer" id="timer">
+    <input
+      class="schedule-input"
+      id="schedule-input"
+      type="text"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="s50, r10, s50, r20"
+    >
+    <section class="dial" aria-live="polite">
+      <div class="ring" id="ring">
+        <div class="ring-inner">
+          <div class="time" id="time">50:00</div>
+          <div class="status" id="status">Study</div>
+        </div>
+      </div>
+    </section>
+    <div class="summary">
+      <span class="summary-text" id="summary-text">step 1 / 4</span>
+      <span class="step-track" id="step-track" aria-hidden="true"></span>
+    </div>
+    <div class="controls">
+      <button class="control-btn" id="reset" type="button" title="Reset">↺</button>
+      <button class="control-btn primary" id="toggle" type="button">Start</button>
+      <button class="control-btn" id="skip" type="button" title="Skip">»</button>
+    </div>
+  </main>
+  <script>
+    const SETTINGS_KEY = 'webzen-pomodoro:settings'
+    const SCHEDULE_KEY = 'webzen-pomodoro:schedule'
+    const STATE_KEY = 'webzen-pomodoro:state'
+    const DEFAULT_SCHEDULE = 's50, r10, s50, r20'
+    const DEFAULT_SETTINGS = { soundEnabled: true }
+    const MODE_META = {
+      s: { label: 'Study', accent: '#f26a5f', accentSoft: '#ffb7ad' },
+      r: { label: 'Rest', accent: '#63d49b', accentSoft: '#a8efc6' }
+    }
+
+    const timer = document.getElementById('timer')
+    const ring = document.getElementById('ring')
+    const timeEl = document.getElementById('time')
+    const statusEl = document.getElementById('status')
+    const summaryText = document.getElementById('summary-text')
+    const stepTrack = document.getElementById('step-track')
+    const scheduleInput = document.getElementById('schedule-input')
+    const toggleBtn = document.getElementById('toggle')
+    const resetBtn = document.getElementById('reset')
+    const skipBtn = document.getElementById('skip')
+
+    let settingsSignature = ''
+    let settings = loadSettings()
+    let scheduleText = loadScheduleText()
+    let steps = parseSchedule(scheduleText)
+    if (!steps) {
+      scheduleText = DEFAULT_SCHEDULE
+      steps = parseSchedule(DEFAULT_SCHEDULE)
+      localStorage.setItem(SCHEDULE_KEY, scheduleText)
+    }
+    let state = loadState()
+    let audioContext = null
+    let scheduleError = false
+
+    function clampNumber(value, fallback, min, max) {
+      const number = Number(value)
+      if (!Number.isFinite(number)) return fallback
+      return Math.min(max, Math.max(min, number))
+    }
+
+    function sanitizeSettings(raw) {
+      return {
+        soundEnabled: raw.soundEnabled !== false
+      }
+    }
+
+    function loadSettings() {
+      try {
+        return sanitizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) })
+      } catch (_e) {
+        return { ...DEFAULT_SETTINGS }
+      }
+    }
+
+    function loadScheduleText() {
+      return localStorage.getItem(SCHEDULE_KEY) || DEFAULT_SCHEDULE
+    }
+
+    function parseSchedule(value) {
+      if (typeof value !== 'string') return null
+
+      const tokens = value
+        .split(/[,\uff0c]/)
+        .map((token) => token.trim())
+        .filter(Boolean)
+
+      if (tokens.length === 0) return null
+
+      const parsed = tokens.map((token) => {
+        const match = token.match(/^([sr])\s*(\d+(?:\.\d+)?)$/i)
+        if (!match) return null
+
+        const minutes = Number(match[2])
+        if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) return null
+
+        return {
+          type: match[1].toLowerCase(),
+          minutes,
+          seconds: Math.max(1, Math.round(minutes * 60))
+        }
+      })
+
+      return parsed.every(Boolean) ? parsed : null
+    }
+
+    function getStep(index = state.index) {
+      return steps[((index % steps.length) + steps.length) % steps.length]
+    }
+
+    function loadState() {
+      let saved = {}
+      try {
+        saved = JSON.parse(localStorage.getItem(STATE_KEY)) || {}
+      } catch (_e) {
+        saved = {}
+      }
+
+      const index = Math.round(clampNumber(saved.index, 0, 0, Math.max(0, steps.length - 1)))
+      const step = steps[index] || steps[0]
+      const remaining = clampNumber(saved.remaining, step.seconds, 0, step.seconds)
+
+      return {
+        index,
+        running: Boolean(saved.running && Number.isFinite(saved.endAt)),
+        endAt: Number.isFinite(saved.endAt) ? saved.endAt : null,
+        remaining
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STATE_KEY, JSON.stringify(state))
+    }
+
+    function resetToFirstState() {
+      state.running = false
+      state.endAt = null
+      state.index = 0
+      state.remaining = steps[0].seconds
+      saveState()
+      render()
+    }
+
+    function applyScheduleText() {
+      const nextText = scheduleInput.value.trim()
+      const nextSteps = parseSchedule(nextText)
+
+      if (!nextSteps) {
+        scheduleError = true
+        scheduleInput.classList.add('invalid')
+        render('Invalid sequence')
+        return false
+      }
+
+      scheduleError = false
+      scheduleInput.classList.remove('invalid')
+      scheduleText = nextText
+      steps = nextSteps
+      localStorage.setItem(SCHEDULE_KEY, scheduleText)
+      resetToFirstState()
+      return true
+    }
+
+    function applyPendingSchedule() {
+      return scheduleInput.value.trim() === scheduleText || applyScheduleText()
+    }
+
+    function getRemaining() {
+      if (state.running && Number.isFinite(state.endAt)) {
+        return Math.max(0, Math.ceil((state.endAt - Date.now()) / 1000))
+      }
+      return state.remaining
+    }
+
+    function formatTime(totalSeconds) {
+      const minutes = Math.floor(totalSeconds / 60)
+      const seconds = totalSeconds % 60
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    }
+
+    function formatMinutes(minutes) {
+      return Number.isInteger(minutes)
+        ? String(minutes)
+        : String(Number(minutes.toFixed(2))).replace(/\.0+$/, '')
+    }
+
+    function getAudioContext() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return null
+
+      if (!audioContext || audioContext.state === 'closed') {
+        audioContext = new AudioContext()
+      }
+
+      return audioContext
+    }
+
+    function unlockAudio() {
+      if (!settings.soundEnabled) return
+
+      const context = getAudioContext()
+      if (!context) return
+
+      if (context.state === 'suspended') {
+        context.resume().catch(() => {})
+      }
+    }
+
+    function scheduleChime(context) {
+      const startAt = context.currentTime + 0.03
+      const gain = context.createGain()
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(0.11, startAt + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.75)
+      gain.connect(context.destination)
+
+      ;[
+        { offset: 0, frequency: 659.25 },
+        { offset: 0.18, frequency: 880 },
+        { offset: 0.36, frequency: 1174.66 }
+      ].forEach(({ offset, frequency }) => {
+        const oscillator = context.createOscillator()
+        oscillator.type = 'sine'
+        oscillator.frequency.setValueAtTime(frequency, startAt + offset)
+        oscillator.connect(gain)
+        oscillator.start(startAt + offset)
+        oscillator.stop(startAt + offset + 0.24)
+      })
+    }
+
+    function playChime() {
+      if (!settings.soundEnabled) return
+
+      const context = getAudioContext()
+      if (!context) return
+
+      if (context.state === 'suspended') {
+        context.resume().then(() => scheduleChime(context)).catch(() => {})
+        return
+      }
+
+      scheduleChime(context)
+    }
+
+    function startTimer() {
+      if (state.running) return
+      state.remaining = getRemaining() || getStep().seconds
+      state.running = true
+      state.endAt = Date.now() + state.remaining * 1000
+      saveState()
+      render()
+    }
+
+    function pauseTimer() {
+      if (!state.running) return
+      state.remaining = getRemaining()
+      state.running = false
+      state.endAt = null
+      saveState()
+      render()
+    }
+
+    function advanceState({ keepRunning = state.running, playSound = false } = {}) {
+      if (playSound) playChime()
+
+      state.index = (state.index + 1) % steps.length
+      state.remaining = getStep().seconds
+      state.running = Boolean(keepRunning)
+      state.endAt = state.running ? Date.now() + state.remaining * 1000 : null
+      saveState()
+      render()
+    }
+
+    function syncSettings() {
+      const nextSettings = loadSettings()
+      const nextSignature = JSON.stringify(nextSettings)
+      if (nextSignature === settingsSignature) return
+
+      settings = nextSettings
+      settingsSignature = nextSignature
+    }
+
+    function render(message = null) {
+      syncSettings()
+
+      const step = getStep()
+      const meta = MODE_META[step.type]
+      const remaining = getRemaining()
+      const total = Math.max(1, step.seconds)
+      const progress = Math.min(1, Math.max(0, (total - remaining) / total))
+
+      timer.style.setProperty('--accent', meta.accent)
+      timer.style.setProperty('--accent-soft', meta.accentSoft)
+      ring.style.setProperty('--progress', `${progress * 100}%`)
+
+      timeEl.textContent = formatTime(remaining)
+      statusEl.textContent = message || (scheduleError ? 'Invalid sequence' : meta.label)
+      toggleBtn.textContent = state.running ? 'Pause' : (remaining < total ? 'Resume' : 'Start')
+      summaryText.textContent = `${meta.label.toLowerCase()} ${formatMinutes(step.minutes)} min · step ${state.index + 1} / ${steps.length}`
+
+      const maxVisibleSteps = 8
+      const firstVisibleStep = clampNumber(
+        state.index - Math.floor(maxVisibleSteps / 2),
+        0,
+        0,
+        Math.max(0, steps.length - maxVisibleSteps)
+      )
+
+      stepTrack.innerHTML = ''
+      steps.slice(firstVisibleStep, firstVisibleStep + maxVisibleSteps).forEach((item, offset) => {
+        const index = firstVisibleStep + offset
+        const chip = document.createElement('span')
+        chip.className = 'step-chip' + (index === state.index ? ' active' : '')
+        chip.textContent = `${item.type}${formatMinutes(item.minutes)}`
+        stepTrack.append(chip)
+      })
+    }
+
+    scheduleInput.value = scheduleText
+
+    scheduleInput.addEventListener('change', applyScheduleText)
+    scheduleInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        applyScheduleText()
+        scheduleInput.blur()
+      }
+    })
+    scheduleInput.addEventListener('input', () => {
+      scheduleError = !parseSchedule(scheduleInput.value.trim())
+      scheduleInput.classList.toggle('invalid', scheduleError)
+      render()
+    })
+
+    toggleBtn.addEventListener('click', () => {
+      unlockAudio()
+      if (state.running) {
+        pauseTimer()
+      } else {
+        if (!applyPendingSchedule()) return
+        startTimer()
+      }
+    })
+
+    resetBtn.addEventListener('click', () => {
+      unlockAudio()
+      if (!applyPendingSchedule()) return
+      resetToFirstState()
+    })
+
+    skipBtn.addEventListener('click', () => {
+      unlockAudio()
+      if (!applyPendingSchedule()) return
+      advanceState({ keepRunning: state.running, playSound: false })
+    })
+
+    setInterval(() => {
+      syncSettings()
+      if (state.running) {
+        const remaining = getRemaining()
+        if (remaining <= 0) {
+          advanceState({ keepRunning: true, playSound: true })
+          return
+        }
+        state.remaining = remaining
+        saveState()
+      }
+      render()
+    }, 500)
+
+    render()
+  </script>
+</body>
+</html>

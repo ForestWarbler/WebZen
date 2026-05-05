@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background: transparent;
+      overflow: auto;
+    }
+    body {
+      padding: 20px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    .setting-label {
+      font-size: 14px;
+      font-weight: 560;
+    }
+    .setting-description {
+      margin-top: 2px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.42);
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.78);
+      transition: transform 0.2s ease;
+    }
+    .toggle input:checked + .toggle-track {
+      background: rgba(99, 212, 155, 0.56);
+    }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(18px);
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-group">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Sound</div>
+        <div class="setting-description">Play a chime when each state ends</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="soundEnabled">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    const SETTINGS_KEY = 'webzen-pomodoro:settings'
+    const DEFAULT_SETTINGS = { soundEnabled: true }
+    const soundEnabled = document.getElementById('soundEnabled')
+
+    function loadSettings() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}
+        return { ...DEFAULT_SETTINGS, soundEnabled: parsed.soundEnabled !== false }
+      } catch (_e) {
+        return { ...DEFAULT_SETTINGS }
+      }
+    }
+
+    function saveSettings(settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    }
+
+    const settings = loadSettings()
+    soundEnabled.checked = settings.soundEnabled
+    soundEnabled.addEventListener('change', () => {
+      saveSettings({ soundEnabled: soundEnabled.checked })
+    })
+  </script>
+</body>
+</html>
