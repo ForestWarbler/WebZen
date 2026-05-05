@@ -103,4 +103,37 @@ jobs:
           body: |
             WebZen desktop release.
 
-            Includes Windows, macOS, Linux binaries and a source code tar.gz archive.
+            ## Downloads
+
+            | Platform | File |
+            |---|---|
+            | macOS (Apple Silicon) | `WebZen-*-mac-arm64.dmg` |
+            | Windows (x64) | `WebZen-*-win-x64.exe` |
+            | Linux (x64) | `WebZen-*-linux-x86_64.AppImage` |
+            | Source | `webzen-*-source.tar.gz` |
+
+            ## macOS users — read this first
+
+            The macOS build is **ad-hoc signed**, not signed with an Apple Developer
+            ID. After downloading the `.dmg` in any browser, macOS will refuse to
+            open the app and show a misleading message:
+
+            > "WebZen" is damaged and can't be opened. You should move it to the Trash.
+
+            The app is **not** damaged. macOS is rejecting it because the file has a
+            `com.apple.quarantine` extended attribute (set automatically by browsers
+            on download) and Gatekeeper requires a paid Apple Developer ID
+            signature to whitelist downloads from the internet.
+
+            To unblock it, run this in Terminal **after** dragging WebZen.app to
+            `/Applications/`:
+
+            ```bash
+            xattr -cr /Applications/WebZen.app
+            ```
+
+            Then double-click WebZen normally — the warning will not return.
+
+            Intel Macs get a different (less alarming) message and can use
+            **right-click → Open → Open** to bypass; on Apple Silicon, `xattr -cr`
+            is the only path. Linux and Windows downloads are unaffected.
