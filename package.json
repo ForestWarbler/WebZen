@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "node scripts/setup-terminal-vendor.js && npx @electron/rebuild -f -w node-pty 2>/dev/null || true",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "node scripts/setup-terminal-vendor.js && node scripts/rebuild-terminal.js",
+    "dist:mac": "electron-builder --mac dmg --x64 --publish never",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:linux": "electron-builder --linux AppImage --x64 --publish never",
+    "test": "node --check index.js && node --check preload.js && node --check renderer.js"
   },
   "repository": {
     "type": "git",
@@ -21,11 +24,52 @@
   },
   "homepage": "https://github.com/ForestWarbler/WebZen#readme",
   "devDependencies": {
-    "electron": "^41.0.2"
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^41.0.2",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
     "node-pty": "^1.1.0",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"
+  },
+  "build": {
+    "appId": "com.webzen.app",
+    "productName": "WebZen",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "index.js",
+      "index.html",
+      "preload.js",
+      "renderer.js",
+      "package.json",
+      "plugins/**/*",
+      "scripts/**/*",
+      "assets/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
   }
 }
